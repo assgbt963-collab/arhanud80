@@ -268,6 +268,7 @@ function masuk(){
 function cari(){
   var q = $("q").value.trim();
   if(!q) return;
+  tvSinyal("standby");
   google.script.run.withSuccessHandler(function(j){
     var L = $("hasilLista");
     if(!j.rows.length){ L.style.display="block"; L.innerHTML='<p class="err">Tidak ditemukan: "'+esc(q)+'"</p>'; $("hasil").style.display="none"; return; }
@@ -314,10 +315,26 @@ function checkin(){
       render({ token:g.token, nama:g.nama, gender:g.gender, kategori:g.kategori,
                jumlah:g.jumlah, hadir:g.hadir, meja_utama:g.meja_utama, meja_istri:g.meja_istri,
                checkin_waktu:g.checkin_waktu });
+      $("stScan").textContent = "\u2705 Check-in tercatat \u2014 kembali standby\u2026";
+      standbyOtomatis(5000);
     } else alert("✗ "+j.error);
   }).withFailureHandler(function(e){ alert("✗ "+((e&&e.message)||e)); }).checkinTamu(PILIH.token, PG);
 }
-function reset(){ $("hasil").style.display="none"; $("hasilLista").style.display="none"; $("q").value=""; $("q").focus(); }
+/* DASH-STANDBY-v7.20: dashboard kembali standby otomatis + beri sinyal ke TV */
+var STD_T = null;
+function tvSinyal(aksi){
+  try{ if(!PG) return; localStorage.setItem("tvSync_"+PG, JSON.stringify({aksi:aksi,t:Date.now()})); }catch(e){}
+}
+function standbyOtomatis(ms){
+  if(STD_T){ clearTimeout(STD_T); STD_T = null; }
+  STD_T = setTimeout(function(){ STD_T = null; standbyDash(); }, ms||5000);
+}
+function standbyDash(){
+  if(STD_T){ clearTimeout(STD_T); STD_T = null; }
+  reset();
+  $("stScan").textContent = "\u2705 Siap \u2014 scan / cari tamu berikutnya.";
+}
+function reset(){ if(STD_T){ clearTimeout(STD_T); STD_T = null; } PILIH = null; $("hasil").style.display="none"; $("hasilLista").style.display="none"; $("q").value=""; $("q").focus(); tvSinyal("standby"); }
 (function(){
   var inp = $("foto");
   if(!inp) return;
@@ -376,7 +393,8 @@ function mulaiCam(){
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     alert("Browser ini tidak mendukung kamera. Gunakan 🖼 PILIH FOTO atau ketik kode."); return;
   }
-  if (CAM){ cleanCam(); $("stScan").textContent = "Kamera dimatikan. Tekan 📷 SCAN LANGSUNG untuk memindai lagi."; return; }
+  if (CAM){ cleanCam(); tvSinyal("standby"); $("stScan").textContent = "Kamera dimatikan. Tekan 📷 SCAN LANGSUNG untuk memindai lagi."; return; }
+  tvSinyal("standby");
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } }, audio: false })
     .then(function(st){
       CAM = st; LOCK = false;
@@ -469,6 +487,7 @@ function autoCheckin(g){
       tampilMeja({ token:g2.token, nama:g2.nama, gender:g2.gender, jumlah:g2.jumlah,
         meja_utama:g2.meja_utama, meja_istri:g2.meja_istri, checkin_waktu:g2.checkin_waktu },
         '<span class="mb-ok">✔ CHECK-IN BERHASIL — SUDAH TAMPIL DI LAYAR TV'+(PG?' '+esc(PG)+'':'')+' · <a href="tv.html?pg='+encodeURIComponent(PG)+'" target="_blank" style="color:#8fdc9f">📺 BUKA LAYAR TV</a></span>');
+      standbyOtomatis(5000);
     } else {
       $("stMeja").innerHTML = '<span class="mb-err">✗ '+esc(j.error)+'</span>';
     }
@@ -485,6 +504,7 @@ function autoCheckin(g){
             tampilMeja({ token:g2.token, nama:g2.nama, gender:g2.gender, jumlah:g2.jumlah,
               meja_utama:g2.meja_utama, meja_istri:g2.meja_istri, checkin_waktu:g2.checkin_waktu },
               '<span class="mb-ok">✔ CHECK-IN BERHASIL (percobaan ke-2) — SUDAH TAMPIL DI LAYAR TV'+(PG?' '+esc(PG):'')+'</span>');
+            standbyOtomatis(5000);
           } else {
             $("stMeja").innerHTML = '<span class="mb-err">✗ '+esc((j2&&j2.error)||"Gagal")+'</span>'+
               '<div style="margin-top:8px;font-size:12px;color:#ffb84d">Tamu tetap bisa di-check-in ulang: tekan tombol CARI / SCAN LAGI lalu scan ulang.</div>';

@@ -20,7 +20,8 @@
 
   Sumber data: backend Apps Script (tvData) — polling otomatis tiap 4 detik.
   Setelah petugas scan + check-in, nama tamu muncul otomatis di layar ini
-  selama 10 detik (dengan suara 'ding-dong' + kilatan emas), lalu kembali standby.
+  selama 30 detik (v7.20; dulu 10 — terlalu cepat), atau sampai petugas mulai aksi
+  berikutnya (cari/scan lagi) pada tab di browser yang sama, lalu kembali standby.
 -->
 <style>
   /* FULLSCREEN v7.12: font & kotak membesar mengikuti ukuran layar TV/laptop/HP */
@@ -286,7 +287,7 @@ function tulisMode(){
 /* ---- STATUS ---- */
 var TERAKHIR = null;   // kunci tamu yang sedang tampil
 var TAMPAIL  = 0;      // kapan mulai tampil
-var DURASI   = 10000;  // 10 detik, lalu kembali standby
+var DURASI   = 30000;  // v7.20: 30 detik (dulu 10 — terlalu cepat), lalu kembali standby
 var KOTA = "Asia/Jakarta";
 var GAGAL = 0;
 
@@ -445,6 +446,17 @@ function tick(){
     setCn("bad", "!! ERROR — MENCOBA LAGI OTOMATIS");
   }
 }
+
+/* ---- SINYAL STANDBY DARI DASHBOARD PETUGAS v7.20 (tab/browser sama) ---- */
+/* TV-SINKRON-v7.20 */
+window.addEventListener("storage", function(ev){
+  try{
+    if (PUSAT) return; // TV pusat hanya ikut timeout/check-in baru
+    if (!ev.key || ev.key !== "tvSync_" + MODE) return;
+    var s = JSON.parse(ev.newValue || "{}");
+    if (s && s.aksi === "standby") setIdle();
+  }catch(e){}
+});
 
 tulisMode();
 jamUpdate(); setInterval(jamUpdate, 1000);
