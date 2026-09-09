@@ -315,7 +315,8 @@ function bunyiKecil(){
 function susunMeja(){
   if (!confirm("Isi meja utama 1..N OTOMATIS untuk semua tamu HADIR yang belum punya meja?\n(Meja yang sudah diisi TIDAK diubah.)")) return;
   google.script.run.withSuccessHandler(function(j){
-    if (j && j.ok) alert("✅ "+(j.jumlah||0)+" tamu diberi meja otomatis (1.."+(j.terisi||0)+").");
+    if (j && j.ok && (j.jumlah||0) > 0) alert("✅ "+j.jumlah+" tamu diberi meja otomatis (1.."+(j.terisi||0)+").");
+    else if (j && j.ok) alert("ℹ️ Tidak ada yang disusun.\n\nSemua tamu HADIR sudah punya meja, dan tamu yang belum konfirmasi belum diproses otomatis oleh backend.\n\nAtur manual per baris, atau pasang patch backend agar susun otomatis mencakup semua tamu.");
     else alert("✗ "+((j&&j.error)||"Gagal menyusun meja."));
     muat();
   }).withFailureHandler(function(e){ alert("✗ "+(e&&e.message||e)); }).susunMejaOtomatis(true);
