@@ -290,6 +290,7 @@ var TAMPAIL  = 0;      // kapan mulai tampil
 var DURASI   = 30000;  // v7.20: 30 detik (dulu 10 — terlalu cepat), lalu kembali standby
 var KOTA = "Asia/Jakarta";
 var GAGAL = 0;
+var TICK_BUSY = false; /* TV-TICK-GUARD-v7.21: cegah request menumpuk */
 
 /* ---- JAM (jalan terus walau server mati) ---- */
 function pad(n){ return String(n).padStart(2,"0"); }
@@ -414,9 +415,12 @@ function setIdle(teks){
 
 /* ---- POLLING ---- */
 function tick(){
+  if (TICK_BUSY) return; // polling sebelumnya belum selesai — lewati
+  TICK_BUSY = true;
   try{
     google.script.run
       .withSuccessHandler(function(j){
+        TICK_BUSY = false;
         if (j && j.ok){
           GAGAL = 0;
           setCn("ok", "● LIVE — DIUPDATE " + new Date().toLocaleTimeString("id-ID"));
@@ -438,11 +442,13 @@ function tick(){
         }
       })
       .withFailureHandler(function(e){
+        TICK_BUSY = false;
         GAGAL++;
         setCn("bad", "!! TIDAK TERHUBUNG — MENCOBA LAGI OTOMATIS");
       })
       .tvData(PUSAT ? "" : MODE);
   }catch(e){
+    TICK_BUSY = false;
     setCn("bad", "!! ERROR — MENCOBA LAGI OTOMATIS");
   }
 }
