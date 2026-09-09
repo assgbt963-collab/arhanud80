@@ -171,7 +171,7 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
 
     <div class="card" style="overflow-x:auto">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px">
-        <h2 style="font-size:14px;color:#d8aa2b;margin-bottom:0">🍽️ ATUR MEJA TAMU — <span class="muted">hanya tamu yang sudah konfirmasi HADIR</span></h2>
+        <h2 style="font-size:14px;color:#d8aa2b;margin-bottom:0">🍽️ ATUR MEJA TAMU — <span class="muted">semua tamu, tanpa perlu konfirmasi HADIR</span></h2>
         <button class="b2" onclick="susunMeja()" title="Isi meja_utama 1..N otomatis untuk tamu yang belum punya meja">🎲 SUSUN MEJA OTOMATIS</button>
       </div>
       <p class="muted" style="margin-bottom:8px">Isi kode meja (contoh: B03 = zona Bapak, I03 = zona Istri) lalu klik SIMPAN. Kosongkan untuk menghapus.</p>
@@ -235,24 +235,28 @@ function muat(){
       '<div class="st"><b>'+s.belumk+'</b><span>Belum Konfirmasi</span></div>'+
       '<div class="st"><b>'+s.checkin+'</b><span>Sudah Datang</span></div>';
 
-    // Tabel atur meja: hanya yang HADIR
-    var hadir = j.rows.filter(function(g){ return g.hadir==="HADIR"; });
-    $("stMeja").textContent = hadir.length ? ("Menunggu meja: "+hadir.filter(function(g){return !g.meja_utama;}).length+" tamu dari "+hadir.length+" konfirmasi hadir.") : "Belum ada tamu yang konfirmasi HADIR.";
-    $("tblMeja").getElementsByTagName("tbody")[0].innerHTML = hadir.map(function(g){
+    // Tabel atur meja v7.16: SEMUA tamu (tanpa syarat konfirmasi HADIR); HADIR di atas
+    var semua = j.rows.slice().sort(function(a,b){
+      var rank = function(h){ return h==="HADIR" ? 0 : (h==="TIDAK HADIR" ? 2 : 1); };
+      return (rank(a.hadir)-rank(b.hadir)) || String(a.nama||"").localeCompare(String(b.nama||""));
+    });
+    var tanpaMeja = semua.filter(function(g){ return !g.meja_utama; }).length;
+    $("stMeja").textContent = semua.length ? ("Menunggu meja: "+tanpaMeja+" tamu dari "+semua.length+" total (termasuk yang belum konfirmasi).") : "Belum ada tamu.";
+    $("tblMeja").getElementsByTagName("tbody")[0].innerHTML = semua.map(function(g){
       var extra = Math.max(0, (g.jumlah||1)-2);
-      return '<tr><td><b>'+esc(g.nama)+'</b><br><span class="muted">'+esc(g.org||"")+'</span></td>'+
+      return '<tr><td><b>'+esc(g.nama)+'</b><br><span class="muted">'+esc(g.org||"")+'</span><br>'+stBadge(g.hadir)+'</td>'+
         '<td>'+(g.jumlah||1)+(extra?'<br><span class="muted">+'+extra+' tnp kursi</span>':'')+'</td>'+
         '<td><input id="mu_'+g.token+'" value="'+esc(g.meja_utama||"")+'" placeholder="B01"></td>'+
         '<td><input id="mi_'+g.token+'" value="'+esc(g.meja_istri||"")+'" placeholder="I01"></td>'+
         '<td><button onclick="simpanMeja(\''+g.token+'\',\''+esc(g.nama).replace(/'/g,"")+'\')">💾 SIMPAN</button></td></tr>';
-    }).join("") || '<tr><td colspan="5" class="muted">Belum ada tamu konfirmasi HADIR.</td></tr>';
+    }).join("") || '<tr><td colspan="5" class="muted">Belum ada tamu.</td></tr>';
 
     // Rekap semua
     $("tbl").getElementsByTagName("tbody")[0].innerHTML = j.rows.map(function(g){
       return '<tr><td><b>'+esc(g.nama)+'</b><br><span class="muted">'+esc(g.org||"")+'</span></td>'+
         '<td>'+esc(g.kategori)+'</td>'+
         '<td>'+(g.hadir==="HADIR"?(g.jumlah||1):'<span class="muted">—</span>')+'</td>'+
-        '<td>'+(g.hadir==="HADIR"?mejaBadge(g):'<span class="muted">—</span>')+'</td>'+
+        '<td>'+mejaBadge(g)+'</td>'+
         '<td>'+stBadge(g.hadir)+'<br><span class="muted">'+esc(g.invite_status==="terkirim"?"undangan terkirim":g.invite_status)+'</span></td>'+
         '<td>'+(g.checkin_waktu?esc(g.checkin_waktu):'<span class="muted">—</span>')+'</td>'+
         '<td><button class="b2" onclick="qrUlang(\''+g.token+'\')">📨 QR Ulang</button> <button class="b2" style="border-color:#c0392b;color:#ff8a7a" onclick="hapusTamu(\''+g.token+'\',\''+esc(g.nama).replace(/'/g,"")+'\')">🗑</button></td></tr>';
