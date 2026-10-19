@@ -554,14 +554,25 @@ nav.bnav a.active,nav.bnav a:hover{color:#1b2a0f;background:linear-gradient(180d
         <div class="cp rv d1"><div class="av">IR</div><div><div class="nm">Mayor Arh Ina R</div><div class="ph">0812-6000-653</div></div><a class="btn wa wa-link" data-wa="2" target="_blank" rel="noopener"><svg><use href="#i-wa"/></svg>CHAT</a></div>
       </div>
       <form class="rsvp rv" id="rsvpForm">
-        <h4>Atau isi formulir singkat</h4>
-        <div class="field"><label for="fNama">Nama &amp; Pangkat / Gelar</label><input id="fNama" required placeholder="cth. Kolonel Arh Budi Santoso"></div>
-        <div class="field"><label for="fSatuan">Satuan / Instansi</label><input id="fSatuan" placeholder="cth. Yonarhanud 3/YBY"></div>
-        <div class="field"><label>Kehadiran</label><div class="choice"><input type="radio" name="hadir" id="h1" value="Hadir" checked><label for="h1">Hadir</label><input type="radio" name="hadir" id="h2" value="Berhalangan Hadir"><label for="h2">Berhalangan</label></div></div>
-        <div class="field"><label for="fJml">Jumlah</label><select id="fJml"><option>1 orang</option><option>2 orang (beserta pendamping)</option></select></div>
-        <div class="field"><label for="fKe">Kirim ke</label><select id="fKe"><option value="0">Panitia (+62 819-3427-0185)</option><option value="1">Letkol Arh Rizki Prima (0812-3468-8215)</option><option value="2">Mayor Arh Ina R (0812-6000-653)</option></select></div>
-        <div class="field"><label for="fUcapan">Ucapan untuk HUT ke-80</label><textarea id="fUcapan" placeholder="Dirgahayu Arhanud TNI AD ke-80..."></textarea></div>
-        <button class="btn wa" type="submit"><svg><use href="#i-wa"/></svg>KIRIM KONFIRMASI</button>
+        <h4>Formulir Konfirmasi Kehadiran &amp; Jumlah Hadir</h4>
+        <div class="field"><label for="fNama">Nama &amp; Pangkat / Gelar</label><input id="fNama" required placeholder="cth. Brigjen TNI Budi Santoso"></div>
+        <div class="field"><label for="fSatuan">Jabatan / Satuan / Instansi</label><input id="fSatuan" placeholder="cth. Pussenarhanud / Yonarhanud 3/YBY"></div>
+        <div class="field"><label>Status Kehadiran</label><div class="choice"><input type="radio" name="hadir" id="h1" value="Hadir" checked onchange="toggleJmlHadir()"><label for="h1">✔ Hadir</label><input type="radio" name="hadir" id="h2" value="Berhalangan Hadir" onchange="toggleJmlHadir()"><label for="h2">✘ Berhalangan</label></div></div>
+        <div class="field" id="fieldJml"><label for="fJml">Jumlah Orang yang Hadir</label><select id="fJml">
+          <option value="1">1 orang (Sendiri)</option>
+          <option value="2">2 orang (Beserta Istri / Suami / Pendamping)</option>
+          <option value="3">3 orang</option>
+          <option value="4">4 orang</option>
+          <option value="5">5 orang</option>
+          <option value="6">6 orang</option>
+          <option value="7">7 orang</option>
+          <option value="8">8 orang</option>
+          <option value="9">9 orang</option>
+          <option value="10">10 orang</option>
+        </select></div>
+        <div class="field"><label for="fKe">Kirim Konfirmasi WhatsApp ke</label><select id="fKe"><option value="0">Panitia (+62 819-3427-0185)</option><option value="1">Letkol Arh Rizki Prima (0812-3468-8215)</option><option value="2">Mayor Arh Ina R (0812-6000-653)</option></select></div>
+        <div class="field"><label for="fUcapan">Ucapan / Keterangan Tambahan</label><textarea id="fUcapan" placeholder="Dirgahayu Arhanud TNI AD ke-80..."></textarea></div>
+        <button class="btn wa" type="submit"><svg><use href="#i-wa"/></svg>KIRIM KONFIRMASI &amp; JUMLAH HADIR</button>
       </form>
     </section>
 
@@ -743,20 +754,41 @@ function catatKonfirmasiKeServer(payload){
     fetch(RPC_EXEC + "?" + q, {method:"GET", credentials:"omit", cache:"no-store"}).catch(()=>{});
   }catch(err){}
 }
+function toggleJmlHadir(){
+  const isHadir = document.getElementById('h1').checked;
+  const fj = document.getElementById('fieldJml');
+  if(fj) fj.style.display = isHadir ? '' : 'none';
+}
 rsvpForm.addEventListener('submit',e=>{e.preventDefault();
   const c=CONFIG.kontak[+fKe.value]||CONFIG.kontak[0],hadir=document.querySelector('input[name=hadir]:checked').value;
-  const jmlAngka = parseInt(fJml.value, 10) || 1;
+  const isHadir = (hadir === "Hadir");
+  const jmlAngka = isHadir ? (parseInt(fJml.value, 10) || 1) : 0;
+  const jmlTeks = isHadir ? (fJml.options[fJml.selectedIndex].text || (jmlAngka + " orang")) : "0 orang (Berhalangan Hadir)";
   catatKonfirmasiKeServer({
     tok: window.__TOK || "",
     nama: fNama.value.trim(),
     satuan: fSatuan.value.trim(),
-    hadir: hadir === "Hadir" ? "HADIR" : "TIDAK HADIR",
+    jenis: (window.__JENIS === "hut") ? "HUT" : "TRADISI",
+    hadir: isHadir ? "HADIR" : "TIDAK HADIR",
     jumlah: jmlAngka,
     ucapan: fUcapan.value.trim()
   });
-  const msg=`*KONFIRMASI KEHADIRAN*\n${namaAcaraLengkap}\nSelasa, 17 November 2026 · ${jamAcaraTeks}\nAula R. Harsoyo Pussenarhanud\n\nNama : ${fNama.value.trim()}\nSatuan/Instansi : ${fSatuan.value.trim()||'-'}\nKehadiran : ${hadir}\nJumlah : ${fJml.value}\n\nUcapan :\n${fUcapan.value.trim()||'Dirgahayu Arhanud TNI AD ke-80!'}\n\n_Vyati Rakca Bhala Cakti_`;
+  const msg=`*KONFIRMASI KEHADIRAN*
+${namaAcaraLengkap}
+Selasa, 17 November 2026 · ${jamAcaraTeks}
+Aula R. Harsoyo Pussenarhanud
+
+Nama : ${fNama.value.trim()}
+Satuan/Instansi : ${fSatuan.value.trim()||'-'}
+Kehadiran : ${hadir}
+Jumlah Hadir : ${jmlTeks}
+
+Ucapan :
+${fUcapan.value.trim()||'Dirgahayu Arhanud TNI AD ke-80!'}
+
+_Vyati Rakca Bhala Cakti_`;
   try{window.open('https://wa.me/'+c.wa+'?text='+encodeURIComponent(msg),'_blank')}catch(err){}
-  showToast('Terima kasih! Konfirmasi tercatat & dikirim ke '+c.nama+'.');
+  showToast('Terima kasih! Konfirmasi ('+(isHadir?jmlAngka+' orang hadir':'Berhalangan')+') tercatat & dikirim ke '+c.nama+'.');
 });
 
 // ---------- Reveal & nav aktif ----------
