@@ -241,11 +241,21 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
         <button class="b2" onclick="tesKirim()">🚀 TES KIRIM</button>
       </div>
       <p class="muted" id="stTes">Pilih konsep undangan lalu tes kirim ke nomor sendiri sebelum broadcast massal.</p>
-      <button onclick="kirimSemua('SEMUA')" style="width:100%;margin-top:4px">📨 KIRIM KE SEMUA YANG BELUM TERKIRIM (SESUAI JENIS MASING-MASING)</button>
-      <div class="btnLine" style="margin-top:8px">
-        <button class="b2" onclick="kirimSemua('TRADISI')">🎖️ Kirim Khusus Tradisi + HUT (07.30)</button>
-        <button class="b2" style="border-color:#2f9e57;color:#7ae2a5" onclick="kirimSemua('HUT')">🎉 Kirim Khusus HUT ke-80 (09.00)</button>
-        <button class="b2" onclick="kirimUlangSemuaGagal()" id="btnRetryGagal" style="display:none;border-color:#ff6b6b;color:#ff9a9a">🔁 Kirim Ulang yang Gagal</button>
+      <div style="margin-top:8px;padding:10px;background:rgba(15,18,22,.92);border:1px solid rgba(216,170,43,.4);border-radius:10px">
+        <label style="display:block;font-size:12px;font-weight:700;color:#f2c63d;margin-bottom:6px">
+          🗂️ FILTER KATEGORI TUJUAN BROADCAST (27 Kategori Rekap + Nomor Contoh Sebelumnya):
+        </label>
+        <select id="selKatBroadcast" onchange="sinkronFilterKategori(this.value)" style="width:100%;font-size:13px;font-weight:700;border-color:#d8aa2b;color:#ffe08a;margin-bottom:8px">
+          <option value="SEMUA_KATEGORI">📂 Semua Kategori (Nomor Contoh + 27 Kategori Rekap)</option>
+          <option value="CONTOH_SEBELUMNYA">🧪 Nomor Contoh Sebelumnya (Data Uji Coba Awal)</option>
+        </select>
+        <button onclick="kirimSemua('SEMUA')" style="width:100%">📨 KIRIM BROADCAST SESUAI FILTER KATEGORI DI ATAS (BELUM TERKIRIM)</button>
+        <div class="btnLine" style="margin-top:8px">
+          <button class="b2" onclick="kirimSemua('TRADISI')">🎖️ Kirim Tradisi+HUT (07.30) di Kategori Ini</button>
+          <button class="b2" style="border-color:#2f9e57;color:#7ae2a5" onclick="kirimSemua('HUT')">🎉 Kirim Khusus HUT (09.00) di Kategori Ini</button>
+          <button class="b2" onclick="kirimUlangSemuaGagal()" id="btnRetryGagal" style="display:none;border-color:#ff6b6b;color:#ff9a9a">🔁 Kirim Ulang yang Gagal</button>
+          <button class="b2" onclick="hentikanBroadcastQueue()" id="btnStopQueue" style="display:none;background:#4a1212;border-color:#ff6b6b;color:#ffd2d2">⏹️ Hentikan Pengiriman</button>
+        </div>
       </div>
       <div class="btnLine" style="margin-top:6px">
         <button class="b2" onclick="enableAuto()" id="btnAuto">🔁 AKTIFKAN AUTO-LANJUT</button>
@@ -391,16 +401,32 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
 
     <div class="card" style="overflow-x:auto;grid-column:1/-1">
       <h2 style="font-size:14px;color:#d8aa2b;margin-bottom:8px">👥 DAFTAR TAMU, JENIS UNDANGAN &amp; STATUS BROADCAST</h2>
+      <div style="background:rgba(15,18,22,.92);border:1px solid rgba(216,170,43,.4);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+        <div class="btnLine" style="align-items:center;margin-bottom:8px">
+          <span style="font-weight:700;color:#f2c63d;font-size:13px">🗂️ Filter Kategori Tamu:</span>
+          <select id="selFilterKategori" onchange="sinkronFilterKategori(this.value)" style="flex:2;min-width:250px;font-size:13px;font-weight:700;border-color:#d8aa2b;color:#ffe08a">
+            <option value="SEMUA_KATEGORI">📂 Semua Kategori (Nomor Contoh + 27 Kategori Rekap)</option>
+            <option value="CONTOH_SEBELUMNYA">🧪 Nomor Contoh Sebelumnya (Data Uji Coba Awal)</option>
+          </select>
+          <button type="button" onclick="kirimSemua('SEMUA')" style="padding:8px 12px;font-size:12px">📨 Broadcast Kategori Ini</button>
+          <button type="button" class="b2" onclick="ubahJenisSatuKategori('TRADISI')" title="Ubah semua tamu di kategori terpilih menjadi Undangan 1: Tradisi + HUT (07.30)">🎖️ Set Kategori → Tradisi (07.30)</button>
+          <button type="button" class="b2" style="border-color:#2f9e57;color:#7ae2a5" onclick="ubahJenisSatuKategori('HUT')" title="Ubah semua tamu di kategori terpilih menjadi Undangan 2: Khusus HUT (09.00)">🎉 Set Kategori → Khusus HUT (09.00)</button>
+          <button type="button" class="b2" onclick="sinkronRekapPdfKeSheet()" title="Tambahkan tamu dari Rekap PDF yang belum ada di Spreadsheet tanpa menghapus nomor contoh">📥 Sinkron 313 Tamu Rekap</button>
+        </div>
+        <div id="chipKategoriBar" style="display:flex;gap:5px;flex-wrap:wrap;max-height:118px;overflow-y:auto;padding-top:4px;border-top:1px dashed rgba(216,170,43,.22)"></div>
+      </div>
       <div class="filterBar">
-        <span class="muted" style="font-weight:700;margin-right:4px">Filter:</span>
-        <button class="fbtn active" id="fb_semua" onclick="setFilterTamu('semua')">Semua (<span id="nb_semua">0</span>)</button>
+        <span class="muted" style="font-weight:700;margin-right:4px">Status:</span>
+        <button class="fbtn active" id="fb_semua" onclick="setFilterTamu('semua')">Semua di Kategori (<span id="nb_semua">0</span>)</button>
         <button class="fbtn" id="fb_tradisi" onclick="setFilterTamu('tradisi')">🎖️ Tradisi + HUT 07.30 (<span id="nb_tradisi">0</span>)</button>
         <button class="fbtn f-ok" id="fb_hut" onclick="setFilterTamu('hut')">🎉 Khusus HUT 09.00 (<span id="nb_hut">0</span>)</button>
+        <button class="fbtn f-ok" id="fb_adahp" onclick="setFilterTamu('adahp')">📱 Ada No. HP (<span id="nb_adahp">0</span>)</button>
+        <button class="fbtn f-err" id="fb_nohp" onclick="setFilterTamu('nohp')">⚠️ HP Belum Tercantum (<span id="nb_nohp">0</span>)</button>
         <button class="fbtn f-err" id="fb_gagal" onclick="setFilterTamu('gagal')">✘ Gagal Terkirim (<span id="nb_gagal">0</span>)</button>
         <button class="fbtn" id="fb_belum" onclick="setFilterTamu('belum')">⏳ Belum Terkirim (<span id="nb_belum">0</span>)</button>
         <button class="fbtn f-ok" id="fb_terkirim" onclick="setFilterTamu('terkirim')">✔ Sudah Terkirim (<span id="nb_terkirim">0</span>)</button>
         <button class="fbtn f-ok" id="fb_konf" onclick="setFilterTamu('konf')">✅ Sudah Konfirmasi (<span id="nb_konf">0</span>)</button>
-        <input id="qCari" placeholder="🔍 Cari nama / nomor WA / satuan…" oninput="renderTabel()" style="flex:1;min-width:190px;margin-left:auto">
+        <input id="qCari" placeholder="🔍 Cari nama / nomor WA / kategori…" oninput="renderTabel()" style="flex:1;min-width:190px;margin-left:auto">
         <button class="b2" id="btnRetryGagal2" style="display:none;border-color:#ff6b6b;color:#ff9a9a" onclick="kirimUlangSemuaGagal()">🔁 Kirim Ulang Semua Gagal</button>
       </div>
       <div id="kosongBox" style="display:none;background:#3a2a10;border:1px solid #f0c33a;color:#ffe08a;border-radius:10px;padding:12px;margin-bottom:10px;font-size:13px">
@@ -515,9 +541,97 @@ function sisipTagAktif(tag){
   try{ el.selectionStart = el.selectionEnd = s + tag.length; }catch(x){}
 }
 
+var KATEGORI_REKAP_27 = ["PJU PUSSENARHANUD", "DANSAT ARHANUD", "MANTAN DANPUSSENARHANUD", "AKMIL 1989", "AKMIL 1990", "AKMIL 1991", "AKMIL 1992", "AKMIL 1993", "AKMIL 1994", "AKMIL 1995", "AKMIL 1996", "AKMIL 1997", "AKMIL 1998", "AKMIL 1999", "AKMIL 2000", "AKMIL 2001", "AKMIL 2002", "AKMIL 2003", "KOLONEL ABIT SEPA PK", "PEJABAT KHUSUS", "BALAKPUS WIL BANDUNG - CIMAHI", "FORKOPIMDA - PIMP BANK", "PPA JABODETABEK", "PPA JAWA BARAT", "REKANAN PUSSENARHANUD", "REKAN KOMANDAN", "UNDANGAN TAMBAHAN"];
+var REKAP_TAMU_313 = [{"no": 1, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Danpussenarhanud beserta Istri", "hp": "082168101991", "hp_raw": "082168101991", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Wadanpussenarhanud beserta Istri", "hp": "081235001195", "hp_raw": "081235001195", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Irpussenarhanud beserta Istri", "hp": "082123231994", "hp_raw": "082123231994", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Dirsen Pussenarhanud beserta Istri", "hp": "081288440095", "hp_raw": "081288440095", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Dirbinum Pussenarhanud beserta Istri", "hp": "08113829145", "hp_raw": "08113829145", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Dirbindik Pussenarhanud beserta Istri", "hp": "081247114191", "hp_raw": "081247114191 081223988944", "ket": "Alt: 081223988944", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Dirbinlat Pussenarhanud beserta Istri", "hp": "081361636355", "hp_raw": "081361636355", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Dirbinrenproggar Pussenarhanud beserta Istri", "hp": "081381023813", "hp_raw": "081381023813", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Dirbinlitbang Pussenarhanud beserta Istri", "hp": "081286802445", "hp_raw": "081286802445", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Pamen Ahli Bid. Ops Arhanud Pussenarhanud beserta Istri", "hp": "0817422632", "hp_raw": "0817422632", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Pamen Ahli Bid. Tikstrat Arhanud Pussenarhanud beserta Istri", "hp": "081381685788", "hp_raw": "081381685788", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Pamen Ahli Bid. Ilpengtek Arhanud Pussenarhanud beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Pamen Ahli Bid. Analishanud Pussenarhanud beserta Istri", "hp": "082244741996", "hp_raw": "082244741996", "ket": "", "jenis": "TRADISI"}, {"no": 14, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Pamen Ahli Bid. Konfisistahanud Pussenarhanud beserta Istri", "hp": "081298187799", "hp_raw": "081298187799", "ket": "", "jenis": "TRADISI"}, {"no": 15, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Irutum It Pussenarhanud beserta Istri", "hp": "085290662003", "hp_raw": "085290662003", "ket": "", "jenis": "TRADISI"}, {"no": 16, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Irutben It Pussenarhanud beserta Istri", "hp": "082215790052", "hp_raw": "082215790052", "ket": "", "jenis": "TRADISI"}, {"no": 17, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Kasubditbinmantrakorps Sdirsen Pussenarhanud beserta Istri", "hp": "081331395903", "hp_raw": "081331395903", "ket": "", "jenis": "TRADISI"}, {"no": 18, "kategori_rekap": "PJU PUSSENARHANUD", "nama": "Kasubditbinsiapsat dan Alutsista Sdirsen Pussenarhanud beserta Istri", "hp": "081217951999", "hp_raw": "081217951999", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danpusdikarhanud beserta istri", "hp": "081282092343", "hp_raw": "081282092343", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "DANSAT ARHANUD", "nama": "Wadanpusdikarhanud beserta istri", "hp": "081333490902", "hp_raw": "081333490902", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "DANSAT ARHANUD", "nama": "Kabengpusarhanud beserta istri", "hp": "081344159478", "hp_raw": "081344159478", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danmen Arhanud 1/F beserta istri", "hp": "082326422226", "hp_raw": "082326422226", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danmen Arhanud 2/SSM beserta istri", "hp": "081248135983", "hp_raw": "081248135983", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 1/PBC/K beserta istri", "hp": "081322244127", "hp_raw": "081322244127", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 2/ABW/K beserta istri", "hp": "081333102857", "hp_raw": "081333102857", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 3/YBY beserta istri", "hp": "081277622304", "hp_raw": "081277622304", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 4/AAY beserta istri", "hp": "08111465507", "hp_raw": "08111465507", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 5/CSBY beserta istri", "hp": "087888444520", "hp_raw": "087888444520", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 6/BAY beserta istri", "hp": "081329109710", "hp_raw": "081329109710", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 7/ABC beserta istri", "hp": "081332344828", "hp_raw": "081332344828", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 8/MBC beserta istri", "hp": "081391375830", "hp_raw": "081391375830", "ket": "", "jenis": "TRADISI"}, {"no": 14, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 9/AWJ beserta istri", "hp": "081321488187", "hp_raw": "081321488187", "ket": "", "jenis": "TRADISI"}, {"no": 15, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 10/ABC beserta istri", "hp": "082210727661", "hp_raw": "082210727661", "ket": "", "jenis": "TRADISI"}, {"no": 16, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 11/WBY beserta istri", "hp": "081288683346", "hp_raw": "081288683346", "ket": "", "jenis": "TRADISI"}, {"no": 17, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 12/SBP beserta istri", "hp": "082143447397", "hp_raw": "082143447397", "ket": "", "jenis": "TRADISI"}, {"no": 18, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 13/PBY beserta istri", "hp": "08119980297", "hp_raw": "08119980297", "ket": "", "jenis": "TRADISI"}, {"no": 19, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 14/PWY beserta istri", "hp": "081233661546", "hp_raw": "081233661546", "ket": "", "jenis": "TRADISI"}, {"no": 20, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 15/DBY beserta istri", "hp": "085332113311", "hp_raw": "085332113311", "ket": "", "jenis": "TRADISI"}, {"no": 21, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danyon Arhanud 16/SBC/K beserta istri", "hp": "08111511063", "hp_raw": "08111511063", "ket": "", "jenis": "TRADISI"}, {"no": 22, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danden Arhanud 003/ARK beserta istri", "hp": "085227924443", "hp_raw": "085227924443", "ket": "", "jenis": "TRADISI"}, {"no": 23, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danden Arhanud 004/WSBY beserta istri", "hp": "085320350316", "hp_raw": "085320350316", "ket": "", "jenis": "TRADISI"}, {"no": 24, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danrai Arhanud Komposit 1/GP beserta istri", "hp": "082138571539", "hp_raw": "082138571539", "ket": "", "jenis": "TRADISI"}, {"no": 25, "kategori_rekap": "DANSAT ARHANUD", "nama": "Danrai Puslatpur Arhanud beserta istri", "hp": "081217278180", "hp_raw": "081217278180", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Letjen TNI Candra Wijaya, M.A. beserta istri", "hp": "08119590965", "hp_raw": "08119590965", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI Hari Arif Wibowo, S.I.P., M.Han. beserta istri", "hp": "088219137998", "hp_raw": "088219137998", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Leo J.P. Siegers, S.I.P. beserta istri", "hp": "0811954195", "hp_raw": "0811954195 021 7311818", "ket": "Alt: 021 7311818", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Toto Nugroho, S.I.P., M.Si. beserta istri", "hp": "081319341989", "hp_raw": "081319341989", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Haris Sarjana, S.I.P., M.M., M.Tr (Han) beserta istri", "hp": "08119899018", "hp_raw": "08119899018", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Johanis Payung, S.E., M.Tr (Han) beserta istri", "hp": "081318818588", "hp_raw": "081318818588", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Karev Marpaung, S.Sos., M.M. beserta istri", "hp": "081284388087", "hp_raw": "081284388087", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Hadi Prasojo beserta istri", "hp": "0811178742", "hp_raw": "0811178742", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Nurchahyanto, M.Sc. beserta istri", "hp": "081283421800", "hp_raw": "081283421800 082299111987", "ket": "Alt: 082299111987", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Heboh Susanto beserta istri", "hp": "081313505080", "hp_raw": "081313505080", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Mayjen TNI (Purn) Nisan Setiadi, S.E. beserta istri", "hp": "08121101988", "hp_raw": "08121101988", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Brigjen TNI (Purn) M. Sochib. SE., MBA.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "MANTAN DANPUSSENARHANUD", "nama": "Brigjen TNI (Purn) Y.B. Wirawan.", "hp": "0818870192", "hp_raw": "0818870192", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1989", "nama": "Mayjen TNI Assoc. Prof. Dr. Priyanto, S.I.P., M.SI(Han).", "hp": "08111001007", "hp_raw": "08111001007", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1989", "nama": "Mayjen TNI Ramses Lumban Tobing, S.T", "hp": "081376410589", "hp_raw": "081376410589", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1989", "nama": "Brigjen TNI Mirza Patria Jaya, S.E.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1990", "nama": "Brigjen TNI I Gede Widiana, S.H., M.Tr.(Han) beserta istri", "hp": "0811238215", "hp_raw": "0811238215", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1990", "nama": "Brigjen TNI R. Wibisono Hendroyoso, M.M. beserta istri", "hp": "081265471956", "hp_raw": "081265471956 081310624043", "ket": "Alt: 081310624043", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1990", "nama": "Kolonel Arh Heri Purwanto, S.I.P.", "hp": "081280231990", "hp_raw": "081280231990", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1991", "nama": "Brigjen TNI I Made Sudiana, S.I.P. beserta istri", "hp": "081365605335", "hp_raw": "081365605335", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1991", "nama": "Brigjen TNI M. Fachmi Rizal Nasution beserta istri", "hp": "082121617854", "hp_raw": "082121617854", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1991", "nama": "Brigjen TNI Dodo Irmanto, S.I.P., M.Si. beserta istri", "hp": "081291999969", "hp_raw": "081291999969", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1991", "nama": "Brigjen TNI Agustinus Eko Mulyadi, S.I.P. beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1991", "nama": "Brigjen TNI R. Djoko Andreas Novalino, S.I.P., M.AB. beserta istri", "hp": "082245799191", "hp_raw": "082245799191", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1992", "nama": "Brigjen TNI Putut Witjaksono Hadi, S.I.P.", "hp": "0811915964", "hp_raw": "0811915964", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1992", "nama": "Brigjen TNI Beny Suryana, S.H., S.A.P., M.Sos.", "hp": "081210266245", "hp_raw": "081210266245", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1992", "nama": "Mayjen TNI Hari Arif Wibowo, S.I.P., M.Han.", "hp": "088219137998", "hp_raw": "088219137998", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1992", "nama": "Kolonel Arh Sudirman", "hp": "082211455557", "hp_raw": "082211455557", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1992", "nama": "Kolonel Arh Tri Tjahja Widodo, S.Sos.", "hp": "082122388538", "hp_raw": "082122388538", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1992", "nama": "Brigjen TNI Rikas Hidayatullah, S.E., M.M.", "hp": "08129371342", "hp_raw": "08129371342", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1992", "nama": "KoloneL Arh Much. Zaenal Abidin", "hp": "08114451992", "hp_raw": "08114451992", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1992", "nama": "Kolonel Arh Ananta Wira I.P., S.Sos., M. Han.", "hp": "081993191992", "hp_raw": "081993191992", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 1992", "nama": "Kolonel Arh Fachruddin Usuluddin, S.E., M.Han.", "hp": "081314067286", "hp_raw": "081314067286", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "AKMIL 1992", "nama": "Brigjen TNI Imanuel Pasaribu, S.I.P.", "hp": "081365101992", "hp_raw": "081365101992", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "AKMIL 1992", "nama": "Kolonel Arh Joko Purnomo", "hp": "081298187799", "hp_raw": "081298187799", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "AKMIL 1992", "nama": "Kolonel Arh Muhammad Satari, S.Sos.", "hp": "082233522674", "hp_raw": "082233522674", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "AKMIL 1992", "nama": "Brigjen TNI Iswan Gunadi, S.Sos., M. Si.", "hp": "081219979270", "hp_raw": "081219979270", "ket": "", "jenis": "TRADISI"}, {"no": 14, "kategori_rekap": "AKMIL 1992", "nama": "Kolonel Arh Dodo Masdori. S.I.P. M. Si.", "hp": "081213320092", "hp_raw": "081213320092", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh Herman Toni", "hp": "082138118182", "hp_raw": "082138118182", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh Eka Wahyudin, S.I.P., M. Si.", "hp": "082149461993", "hp_raw": "082149461993", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh Tri A. Santoso", "hp": "081394479199", "hp_raw": "081394479199", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh Heru Darmawan", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1993", "nama": "Brigjen TNI Tony Aris Setyawan, S.E., M.M.", "hp": "08118159393", "hp_raw": "08118159393", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh Raden Novi Setiana, S.I.P.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh C.N.F. Tangjong", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1993", "nama": "Mayjen TNI Tjahjono Praseyanto, S.T.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 1993", "nama": "Brigjen TNI Sony Hendayana, S.Psi, M. Si.", "hp": "081292164493", "hp_raw": "081292164493", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh A. E. Hadi Susanto, S.T., M.Si.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "AKMIL 1993", "nama": "Kolonel Arh Suherman, S.I.P.", "hp": "081214514521", "hp_raw": "081214514521", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1994", "nama": "Brigjen TNI Hamim Tohari, M.A.", "hp": "081373737894", "hp_raw": "081373737894", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1994", "nama": "Brigjen TNI Wirawan Yanuartono, S.Sos., M.Sos.", "hp": "081360268127", "hp_raw": "081360268127", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1994", "nama": "Brigjen TNI M. Nafiz", "hp": "08113637299", "hp_raw": "08113637299", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1994", "nama": "Kolonel Arh Bambang Utomo, S.I.P., M.Sos.", "hp": "081222001194", "hp_raw": "081222001194", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1994", "nama": "Kolonel Arh R.S. Ramses Malau", "hp": "081321443389", "hp_raw": "081321443389", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1994", "nama": "Kolonel Arh Mohamad Zaini, S.I.P., M.Sos.", "hp": "08113637299", "hp_raw": "08113637299", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1994", "nama": "Kolonel Arh E.O.P. Sibarani, S.I.P.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1994", "nama": "Kolonel Arh Elisa Octavianus P.S., S.I.P.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 1994", "nama": "Kolonel Arh Agus Setiawan, S.T.", "hp": "081334781694", "hp_raw": "081334781694", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1995", "nama": "Mayjen TNI Harvin Kidingallo, S.H., S.T. beserta istri", "hp": "081288781995", "hp_raw": "081288781995", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1995", "nama": "Mayjen TNI Trias Wijanarko, S.I.P. beserta istri", "hp": "081376920001", "hp_raw": "081376920001", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1995", "nama": "Brigjen TNI Hagus Indaryanto, S.H., P.Sc. beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1995", "nama": "Brigjen TNI Blasius Popylus, S.I.P. beserta istri", "hp": "081223391995", "hp_raw": "081223391995", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1995", "nama": "Kolonel Arh A. Saiful Widjawarto, S.I.P. beserta istri", "hp": "081340641995", "hp_raw": "081340641995", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1995", "nama": "Kolonel Arh Slamet Supriyono, S.I.P., S.T. beserta istri", "hp": "081234071136", "hp_raw": "081234071136", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1995", "nama": "Kolonel Arh Sjahrir Rijadi beserta istri", "hp": "082116625714", "hp_raw": "082116625714", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1995", "nama": "Kolonel Arh M. Desi Ariyanto beserta istri", "hp": "081395510480", "hp_raw": "081395510480", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 1995", "nama": "Kolonel Arh Sjafaruddin Harahap, S.Sos. beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1996", "nama": "Brigjen TNI Deni Sukwara, S.E., M.Si beserta istri", "hp": "082327327096", "hp_raw": "082327327096", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1996", "nama": "Brigjen TNI Zainal Arifin beserta istri", "hp": "085796618819", "hp_raw": "085796618819 0217355988", "ket": "Alt: 0217355988", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1996", "nama": "Brigjen TNI Tri Sugianto, S.Sos. beserta istri", "hp": "081371038696", "hp_raw": "081371038696", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1996", "nama": "Brigjen TNI Riksawan Ardhianto, S.I.P. beserta istri", "hp": "081384209996", "hp_raw": "081384209996", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1996", "nama": "Brigjen TNI Marthen Verny R. S.E. beserta istri", "hp": "081394000180", "hp_raw": "081394000180", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1996", "nama": "Kolonel Arh Irwan Setiawan beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1996", "nama": "Kolonel Arh Rakhmat Santoso beserta istri", "hp": "081333481996", "hp_raw": "081333481996", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1996", "nama": "Kolonel Arh Fithrizal Setiawan, S.Sos., M.Sc. beserta istri", "hp": "0811631996", "hp_raw": "0811631996", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 1996", "nama": "Kolonel Arh Heri Siswanto, M.M beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1997", "nama": "Brigjen TNI Osmar Silalahi beserta istri", "hp": "081252361197", "hp_raw": "081252361197", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1997", "nama": "Brigjen TNI Wachyu Dwi Haryanto, S.I.P beserta istri", "hp": "085320597297", "hp_raw": "085320597297", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh G.T.H. Hasto Respatyo, S.T. beserta istri", "hp": "081282585880", "hp_raw": "081282585880", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1997", "nama": "Brigjen TNI Ignatius Wahyu Jatmiko beserta istri", "hp": "081382248225", "hp_raw": "081382248225", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Mokhamad Ibnu Sukelan, S.I.P beserta istri", "hp": "085842225170", "hp_raw": "085842225170", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Sudrajat, S.H beserta istri", "hp": "08170504097", "hp_raw": "08170504097", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Candy Cristian Riantory, S.I.P. beserta istri", "hp": "08126522310", "hp_raw": "08126522310", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1997", "nama": "Brigjen TNI Rudi Ragil S.P., S.Sos., M.SI beserta istri", "hp": "081283431997", "hp_raw": "081283431997", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh J.P. Parningotan Gurning beserta istri", "hp": "081217160061", "hp_raw": "081217160061", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Edi Nugraha, S.Sos. beserta istri", "hp": "085264679175", "hp_raw": "085264679175", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Harry Sassono Utomo, S.H. beserta istri", "hp": "085277208333", "hp_raw": "085277208333", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Budi Laksana beserta istri", "hp": "081392792767", "hp_raw": "081392792767", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Yulian Iskandar, S.I.P., M.M. beserta istri", "hp": "082111061812", "hp_raw": "082111061812", "ket": "", "jenis": "TRADISI"}, {"no": 14, "kategori_rekap": "AKMIL 1997", "nama": "Kolonel Arh Endro Nurbantoro, S.I.P. beserta istri", "hp": "085723445123", "hp_raw": "085723445123", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1998", "nama": "Brigjen TNI Benny Febrianto, S.Sos., M.I.P. beserta istri", "hp": "081283837798", "hp_raw": "081283837798", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1998", "nama": "Kolonel Arh Donny Indiawan, S.I.P.", "hp": "085275929598", "hp_raw": "085275929598", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1998", "nama": "Kolonel Arh Kurniawan Fitriana, S.Sos.", "hp": "082262414544", "hp_raw": "082262414544", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1998", "nama": "Kolonel Arh Ahmad Sumarna, M.Bus.", "hp": "08113986678", "hp_raw": "08113986678", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1998", "nama": "Kolonel Arh Budiono", "hp": "08125520632", "hp_raw": "08125520632", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1998", "nama": "Kolonel Arh Sukma Yudha W., S.Sos.", "hp": "081287159598", "hp_raw": "081287159598", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1998", "nama": "Kolonel Arh Dedy Rahmanto, M.Si. (Han)", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1998", "nama": "Kolonel Arh Hany Mahmudi, S.E., M.A.P.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Priyo Iswahyudi, S.E.", "hp": "08211712144", "hp_raw": "08211712144", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Wahyu Akhadi, S.H.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Abraham Kalelo, S.Sos.", "hp": "081325085010", "hp_raw": "081325085010", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Ardian Patria C., M.SC. beserta istri", "hp": "081288497670", "hp_raw": "081288497670", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Gunawan Wibisono, S.E.", "hp": "081331894225", "hp_raw": "081331894225", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 1999", "nama": "Brigjen TNI Nur Subekhi, M.Si. (Han)", "hp": "081346683495", "hp_raw": "081346683495", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Hendri Yudi S., S.I.P., M.Si.", "hp": "081341186089", "hp_raw": "081341186089", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Hadi Purwanto, S.H.", "hp": "081376317020", "hp_raw": "081376317020", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Pulung Patria Daga, M.Si. (Han)", "hp": "081385093254", "hp_raw": "081385093254", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Antonius Andre W.K., S.AP., M.Si.", "hp": "081320643115", "hp_raw": "081320643115", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Dedi Setia A.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Anang Hasto U., S.I.P., M.Han.", "hp": "081343404318", "hp_raw": "081343404318", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Hendra Roza, S.I.P.", "hp": "085234325566", "hp_raw": "085234325566", "ket": "", "jenis": "TRADISI"}, {"no": 14, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Budyanto Putro S., S.E., M.Han", "hp": "082211311313", "hp_raw": "082211311313", "ket": "", "jenis": "TRADISI"}, {"no": 15, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Sabariyandu K. Saragih", "hp": "081376561767", "hp_raw": "081376561767", "ket": "", "jenis": "TRADISI"}, {"no": 16, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Camas Sigit P., M.Mds.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 17, "kategori_rekap": "AKMIL 1999", "nama": "Kolonel Arh Samujiyo", "hp": "085271321999", "hp_raw": "085271321999", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Novianto Firmansyah, S.E., M.Tr(Han)", "hp": "081316755817", "hp_raw": "081316755817", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Teguh Waluyo, S.I.P.", "hp": "085224252000", "hp_raw": "085224252000", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Adhi Kurniawan, S.E., M.Han.", "hp": "085360602000", "hp_raw": "085360602000", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Aji Prasetyo N., S.Sos., M.M.", "hp": "081283012000", "hp_raw": "081283012000", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Yudha Kusuma", "hp": "085923212000", "hp_raw": "085923212000", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Agung Sinaring M.", "hp": "081394010866", "hp_raw": "081394010866", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Tengku Sony S., S.E., M.I.P.", "hp": "08119703079", "hp_raw": "08119703079", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Pandji Permana, S.E., M.Tr (Han).", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Burhan Fajari A., S.Sos.", "hp": "081282692000", "hp_raw": "081282692000", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Kharis Ali", "hp": "081384492000", "hp_raw": "081384492000", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Andi Budi S., S.Sos.", "hp": "081362157004", "hp_raw": "081362157004", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Pri Isdiyanto, S.E.", "hp": "08126958568", "hp_raw": "08126958568", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "AKMIL 2000", "nama": "Kolonel Arh Hari Purnomo", "hp": "0811670168", "hp_raw": "0811670168", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh R. Jatmiko Adhi P.C., S.E., M.I. Pol.", "hp": "08119707901", "hp_raw": "08119707901", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh Choirul Huda, S.Sos., M.Tr.(Han)., M.I.Pol.", "hp": "082214212001", "hp_raw": "082214212001", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh Mohamad Ufiz, S.I.P., M.I. Pol.", "hp": "081269436282", "hp_raw": "081269436282", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh Tan Kurniawan, S.AP., M.I. Pol.", "hp": "081343074353", "hp_raw": "081343074353", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh Agung Rakhman W., S.I.P", "hp": "081328877765", "hp_raw": "081328877765", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh Uun Samson S.I.P., M.I.Pol.", "hp": "085235529076", "hp_raw": "085235529076", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh Faris Kurniawan, S.T., M.T.", "hp": "081269436282", "hp_raw": "081269436282", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 2001", "nama": "Kolonel Arh Jimmy Hutapea, S.E", "hp": "08127508445", "hp_raw": "08127508445", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Tamaji, S.Sos., M.I.Pol.", "hp": "081276990049", "hp_raw": "081276990049 081233352002", "ket": "Alt: 081233352002", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Dharma Noviang Jaya", "hp": "081901101180", "hp_raw": "081901101180", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Yosip Brozti Dadi, S.E.", "hp": "081343031162", "hp_raw": "081343031162", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Yan Eka Putra, S.Sos.", "hp": "081327305381", "hp_raw": "081327305381", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Sutrisno, S.Sos.", "hp": "081382528989", "hp_raw": "081382528989", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Agus Guwandi", "hp": "081334252525", "hp_raw": "081334252525", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Arif Budi Cahyono", "hp": "081321120002", "hp_raw": "081321120002", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh M. Nahrudin Rosyid, S.E., M.Tr.Han., M.M.", "hp": "082216952002", "hp_raw": "082216952002", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "AKMIL 2002", "nama": "Kolonel Arh Ridwan Budi Sulistyawan", "hp": "082136803866", "hp_raw": "082136803866", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Dr. Syarif Syah Banjar, S.H., M.I.P.", "hp": "081361152003", "hp_raw": "081361152003", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Drian Priyambodo, S.E.", "hp": "081222222003", "hp_raw": "081222222003", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Rendra Febrandari S., S.I.P.", "hp": "082320401975", "hp_raw": "082320401975", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Agus Nur Fujianto, S.I.P., M. Han.", "hp": "081378004405", "hp_raw": "081378004405", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Helmy Ariansyah", "hp": "08119998500", "hp_raw": "08119998500", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Riyanto Budi Nugroho, M. Han.", "hp": "082234218058", "hp_raw": "082234218058", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Erik Novianto, S.Sos.", "hp": "08122772180", "hp_raw": "08122772180", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "AKMIL 2003", "nama": "Kolonel Arh Rimba Anwar, S.I.P., M.I.P.", "hp": "081210886178", "hp_raw": "081210886178", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Agus Syahruddin, S.Psi., M. Psi.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Untung Widagdo, S.H.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Sattya Wardana, S.E.", "hp": "081377109004", "hp_raw": "081377109004", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Muhamad Arifin, S.Pd.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Yudia, S.Si., M.Si.", "hp": "081261809090", "hp_raw": "081261809090", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Rina Kartika, S.Si., M.Tr.(Han).", "hp": "082214067444", "hp_raw": "082214067444", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Djonlie R. Kaligis, S.Pd., M.Si.", "hp": "085342899620", "hp_raw": "085342899620", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Iswibowo, S.Pd.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Supriyadi, S.Pd.", "hp": "081389788203", "hp_raw": "081389788203", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Yoyo Karyo, S.I.P., M.Tr.(Han).", "hp": "08127612204", "hp_raw": "08127612204", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Sandy Octaviana, A.Md.", "hp": "081310869698", "hp_raw": "081310869698", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Irja Faily, S.T.", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Yogi Nugroho, B.S., M.P.M.", "hp": "0811237599", "hp_raw": "0811237599", "ket": "", "jenis": "TRADISI"}, {"no": 14, "kategori_rekap": "KOLONEL ABIT SEPA PK", "nama": "Kolonel Arh Muhammad Suaib, S.Pd.", "hp": "085343773333", "hp_raw": "085343773333", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "PEJABAT KHUSUS", "nama": "Mayjen TNI (Purn) Dr. H. TB Hasanuddin, S.E., M.M., M.Si.", "hp": "081290062888", "hp_raw": "081290062888", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "PEJABAT KHUSUS", "nama": "Mayjen TNI (Purn) Andi Sumangerukka, S.I.P., M.M.", "hp": "082189082292", "hp_raw": "0821-8908-2292", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "PEJABAT KHUSUS", "nama": "Mayor Arh (Purn) Yoyo Riyo Sudibyo", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Dankodiklatad beserta istri", "hp": "081319717941", "hp_raw": "081319717941 (ADC Sertu Rizal)", "ket": "ADC Sertu Rizal", "jenis": "HUT"}, {"no": 2, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Danpussenif beserta istri", "hp": "082194292404", "hp_raw": "082194292404 (ADC Sertu Agung)", "ket": "ADC Sertu Agung", "jenis": "HUT"}, {"no": 3, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Pangdam III/Slw beserta istri", "hp": "0895355331739", "hp_raw": "0895355331739 (ADC Sertu Bayu)", "ket": "ADC Sertu Bayu", "jenis": "HUT"}, {"no": 4, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Danseskoad beserta istri", "hp": "087812029220", "hp_raw": "087812029220 (ADC Serda Bagas)", "ket": "ADC Serda Bagas", "jenis": "HUT"}, {"no": 5, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Dansecapaad beserta istri", "hp": "085384212276", "hp_raw": "085384212276 (ADC Serda Jahfal)", "ket": "ADC Serda Jahfal", "jenis": "HUT"}, {"no": 6, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Danpussenkav beserta istri", "hp": "082257235676", "hp_raw": "082257235676 (ADC Serda La Ode)", "ket": "ADC Serda La Ode", "jenis": "HUT"}, {"no": 7, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Danpussenarmed beserta istri", "hp": "082127222387", "hp_raw": "082127222387 (ADC Sertu Huda)", "ket": "ADC Sertu Huda", "jenis": "HUT"}, {"no": 8, "kategori_rekap": "BALAKPUS WIL BANDUNG - CIMAHI", "nama": "Kadisjasad beserta istri", "hp": "08157123831", "hp_raw": "08157123831 (ADC PNS Yana)", "ket": "ADC PNS Yana", "jenis": "HUT"}, {"no": 1, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Kajati Jabar", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 2, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Walikota Cimahi", "hp": "081120244832", "hp_raw": "081120244832 (Sekpri Diki)", "ket": "Sekpri Diki", "jenis": "HUT"}, {"no": 3, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Kapolres Cimahi", "hp": "081248197507", "hp_raw": "081248197507 (Kaseum PNS Weni)", "ket": "Kaseum PNS Weni", "jenis": "HUT"}, {"no": 4, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Dandim 0609/Cimahi", "hp": "081220278391", "hp_raw": "081220278391", "ket": "", "jenis": "HUT"}, {"no": 5, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Ketua DPRD Cimahi", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 6, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Kepala Kejaksaan Negeri Cimahi", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 7, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Kepala cabang Bank BRI Cimahi", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 8, "kategori_rekap": "FORKOPIMDA - PIMP BANK", "nama": "Kepala cabang Bank Mandiri Bandung", "hp": "08176073333", "hp_raw": "08176073333 (Ibu Ira Aprilianti)", "ket": "Ibu Ira Aprilianti", "jenis": "HUT"}, {"no": 1, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayjen TNI (Purn) Neno Hamriono.,S.I.P., M.M", "hp": "08111147262", "hp_raw": "08111147262", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayjen TNI (Purn) Soetomo", "hp": "0811637490", "hp_raw": "0811637490 0816798584", "ket": "Alt: 0816798584", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "PPA JABODETABEK", "nama": "Letkol Arh (Purn) Adv. Dr. H. Budi Santosa., S.H., M.H.", "hp": "08129100654", "hp_raw": "0812-9100-654", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "PPA JABODETABEK", "nama": "Letkol Arh (Purn) Marsito", "hp": "082399788141", "hp_raw": "082399788141", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayjen TNI (Purn) Soenaryo", "hp": "087880192710", "hp_raw": "087880192710", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayjen TNI (Purn) H. Ahmad Muslih", "hp": "08129607010", "hp_raw": "0812-9607-010", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayjen TNI (Purn) Purwo Sudaryanto", "hp": "081369674212", "hp_raw": "081369674212", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayjen TNI (Purn) Kuat Budiman beserta istri", "hp": "081315450580", "hp_raw": "0813-1545-0580", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "PPA JABODETABEK", "nama": "Brigjen TNI (Purn) Jurefar", "hp": "081287068529", "hp_raw": "081287068529 0218731904", "ket": "Alt: 0218731904", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "PPA JABODETABEK", "nama": "Brigjen TNI (Purn) Mazni Harun", "hp": "0811870471", "hp_raw": "0811870471", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "PPA JABODETABEK", "nama": "Brigjen TNI (Purn) Budhi Dharmawan beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 12, "kategori_rekap": "PPA JABODETABEK", "nama": "Kolonel Arh (Purn) Hardi Hariyanto", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 13, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayor Arh (Purn) Sudarso", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 14, "kategori_rekap": "PPA JABODETABEK", "nama": "Letkol Arh (Purn) Sayat", "hp": "081290967910", "hp_raw": "0812-9096-7910", "ket": "", "jenis": "TRADISI"}, {"no": 15, "kategori_rekap": "PPA JABODETABEK", "nama": "Letkol Arh (Purn) Kusriyono", "hp": "081289197642", "hp_raw": "0812-8919-7642", "ket": "", "jenis": "TRADISI"}, {"no": 16, "kategori_rekap": "PPA JABODETABEK", "nama": "Kolonel Arh (Purn) A. Zaky Basuki Rahmat, S.I.P.", "hp": "081391672999", "hp_raw": "081391672999", "ket": "", "jenis": "TRADISI"}, {"no": 17, "kategori_rekap": "PPA JABODETABEK", "nama": "Mayjen TNI (Purn) M. Rusli, S.H., S.I.P., M.M.", "hp": "08129286513", "hp_raw": "08129286513", "ket": "", "jenis": "TRADISI"}, {"no": 18, "kategori_rekap": "PPA JABODETABEK", "nama": "Brigjen TNI (Purn) Dr. H. Hasyim Lalhakim, S.E., M.M., M. Sc. beserta istri", "hp": "081210251991", "hp_raw": "081210251991", "ket": "", "jenis": "TRADISI"}, {"no": 19, "kategori_rekap": "PPA JABODETABEK", "nama": "Letkol Arh (Purn) Agus Saputra beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 20, "kategori_rekap": "PPA JABODETABEK", "nama": "Letkol Arh (Purn) Surya Darma", "hp": "08158266244", "hp_raw": "08158266244", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "PPA JAWA BARAT", "nama": "Brigjen TNI (Purn) Erwin Septiansyah beserta istri", "hp": "081360667766", "hp_raw": "081360667766", "ket": "", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "PPA JAWA BARAT", "nama": "Mayjen TNI (Purn) Eddy Rahmat", "hp": "082115100278", "hp_raw": "082115100278", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "PPA JAWA BARAT", "nama": "Letkol Arh (Purn) Jajang Wahyudin", "hp": "087821134471", "hp_raw": "087821134471", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "PPA JAWA BARAT", "nama": "Letkol Arh (Purn) Deni Rachyudi", "hp": "081224882697", "hp_raw": "081224882697", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "PPA JAWA BARAT", "nama": "Letkol Arh (Purn) Dwi Warna", "hp": "0815737372", "hp_raw": "0815737372", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "PPA JAWA BARAT", "nama": "Brigjen TNI (Purn) Jama'ah beserta istri", "hp": "081394191169", "hp_raw": "081394191169", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "PPA JAWA BARAT", "nama": "Brigjen TNI (Purn) A. M. Suharyadi, S.I.P., M.Si. beserta istri", "hp": "08123392901", "hp_raw": "08123392901", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "PPA JAWA BARAT", "nama": "Mayjen TNI (Purn) Sisriadi", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "PPA JAWA BARAT", "nama": "Brigjen TNI (Purn) Kunto Ridarto, S.I.P., M.M.", "hp": "082345699992", "hp_raw": "082345699992", "ket": "", "jenis": "TRADISI"}, {"no": 1, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Pieter Lau, Direktur PT Cipta Tehnik Berjaya", "hp": "0816879899", "hp_raw": "0816879899", "ket": "", "jenis": "HUT"}, {"no": 2, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Ibu Tita, Direktur PT Kadomas Aviasindo", "hp": "081219471001", "hp_raw": "081219471001", "ket": "", "jenis": "HUT"}, {"no": 3, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Prof Joga Dharma, Direktur PT Len (Persero)", "hp": "08563353351", "hp_raw": "08563353351", "ket": "", "jenis": "HUT"}, {"no": 4, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Rizky, Direktur PT Nexin Bandung", "hp": "081214131427", "hp_raw": "081214131427", "ket": "", "jenis": "HUT"}, {"no": 5, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Dita, Direktur PT Respati Solusi Rekatama", "hp": "08111013296", "hp_raw": "08111013296", "ket": "", "jenis": "HUT"}, {"no": 6, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Eka, Direktur PT Sentra Surya Ekajaya", "hp": "08129722644", "hp_raw": "08129722644", "ket": "", "jenis": "HUT"}, {"no": 7, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Andre, Direktur PT Cipta Kreasi Bumi Indo", "hp": "08137775377", "hp_raw": "08137775377", "ket": "", "jenis": "HUT"}, {"no": 8, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Audi LP Sitanggang, Direktur PT PGM", "hp": "081213571818", "hp_raw": "081213571818", "ket": "", "jenis": "HUT"}, {"no": 9, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Eric, Direktur PT Ralika", "hp": "0816810111", "hp_raw": "0816810111", "ket": "", "jenis": "HUT"}, {"no": 10, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Yussi, Direktur PT RTI", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 11, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Roland Andira Wala, Direktur PT SAS Aero Sishan", "hp": "0811228545", "hp_raw": "0811228545", "ket": "", "jenis": "HUT"}, {"no": 12, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Beben Direktur PT Tecno Multi Utama", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 13, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Peter Tjahyono PT BTI", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 14, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Davi dan Howard Lityo, Direktur PT OCWSB Pratama Indonesia", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 15, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Samsul Hadi, Direktur PT Putra Nirmala Abadi Jaya", "hp": "0816993211", "hp_raw": "0816993211", "ket": "", "jenis": "HUT"}, {"no": 16, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Adi Nugroho, Direktur PT. Harrif", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 17, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Henri dan Ibu Veba, Direktur PT. Bhineka", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 18, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Haruhiko, Direktur PT. ESAH", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 19, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Gunawan Direktur PT. Sino", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 20, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Yan Heryadi, Direktur PT. Djarum", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 21, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Tubagus Ardhika, Ph.D., Direktur KM1 Grup", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 22, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Norman, Direktur PT Republik Defence Indonesia", "hp": "08118000800", "hp_raw": "08118000800", "ket": "", "jenis": "HUT"}, {"no": 23, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Sigit, Direktur PT Pindad", "hp": "085729491747", "hp_raw": "085729491747", "ket": "", "jenis": "HUT"}, {"no": 24, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Bpk Tedy, Direktur PT. Surya Perkasa Utama", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 25, "kategori_rekap": "REKANAN PUSSENARHANUD", "nama": "Ibu Zakiah, Direktur PT. Sultana Mitra Zaf", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 1, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Ronny Tanuwijaya beserta Istri", "hp": "081388558055", "hp_raw": "081388558055", "ket": "", "jenis": "HUT"}, {"no": 2, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Budi Profast Batu Malang beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 3, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Sony di Bandung beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 4, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Setiyoko di Bandung beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 5, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Sarwan Kumar di Jakarta beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 6, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Hendra beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 7, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Tommy Zhang beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 8, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Razali Medan beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 9, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Tonny Pranowo Jakarta beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 10, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Hengky Jakarta beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 11, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Ervan Cahya Cibubur beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 12, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Wira Medan beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 13, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Yoseph Jakarta beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 14, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Cahyadi beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 15, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Prof. Dr. Eka Yulianta Wahjoepramono di Jakarta beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 16, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Haryanto Liman di Jakarta beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 17, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Steel Edwin di Medan beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 18, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Jhon Susanto di Jakarta beserta Istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "HUT"}, {"no": 19, "kategori_rekap": "REKAN KOMANDAN", "nama": "Bpk Ervan Katumiri di Cimahi beserta Istri", "hp": "081221970331", "hp_raw": "081221970331", "ket": "", "jenis": "HUT"}, {"no": 1, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Marsdya TNI Andyawan Martono Putra, S.I.P.", "hp": "081299293926", "hp_raw": "081299293926 (Kasmin)", "ket": "Kasmin", "jenis": "TRADISI"}, {"no": 2, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Mayjen TNI (Purn) Dedi Solihin beserta istri", "hp": "081991060388", "hp_raw": "081991060388", "ket": "", "jenis": "TRADISI"}, {"no": 3, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Mayjen TNI (Purn) S.T.E.S. Handono beserta istri", "hp": "081321340140", "hp_raw": "081321340140", "ket": "", "jenis": "TRADISI"}, {"no": 4, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Brigjen TNI (Purn) Edy Widianto beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}, {"no": 5, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Brigjen TNI (Purn) Putu Eka Asmara beserta istri", "hp": "081313407187", "hp_raw": "081313407187", "ket": "", "jenis": "TRADISI"}, {"no": 6, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Brigjen TNI (Purn) Kamiso Miran beserta istri", "hp": "081294126981", "hp_raw": "0812-9412-6981", "ket": "", "jenis": "TRADISI"}, {"no": 7, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Kolonel Arh (Purn) Rikson Herianto S. beserta istri", "hp": "081362626190", "hp_raw": "081362626190", "ket": "", "jenis": "TRADISI"}, {"no": 8, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Kolonel Arh (Purn) Eko Yuni Kamtono beserta istri", "hp": "08126536936", "hp_raw": "08126536936", "ket": "", "jenis": "TRADISI"}, {"no": 9, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Kolonel Arh (Purn) Dahyar Jampang beserta istri", "hp": "081235136339", "hp_raw": "081235136339", "ket": "", "jenis": "TRADISI"}, {"no": 10, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Kolonel Arh (Purn) Edy EY beserta istri", "hp": "081312072331", "hp_raw": "081312072331", "ket": "", "jenis": "TRADISI"}, {"no": 11, "kategori_rekap": "UNDANGAN TAMBAHAN", "nama": "Kolonel Arh (Purn) Wawik Dwinanto beserta istri", "hp": "Belum tercantum", "hp_raw": "Belum tercantum", "ket": "", "jenis": "TRADISI"}];
+var _KATEGORI_SET = {};
+KATEGORI_REKAP_27.forEach(function(k){ _KATEGORI_SET[k.toUpperCase()] = k; });
+
+function hasValidHp(hp){
+  var s = String(hp || "").trim();
+  if(!s || s.toLowerCase().indexOf("belum") >= 0) return false;
+  var d = s.replace(/\D/g, "");
+  return d.length >= 8;
+}
+
+function getKategoriRekapTamu(g){
+  var org = String((g && g.org) || "").trim();
+  var up = org.toUpperCase();
+  if(_KATEGORI_SET[up]) return _KATEGORI_SET[up];
+  return "CONTOH_SEBELUMNYA";
+}
+
+function labelKategoriRekap(kat){
+  if(kat === "SEMUA_KATEGORI") return "Semua Kategori (Nomor Contoh + 27 Kategori)";
+  if(kat === "CONTOH_SEBELUMNYA") return "🧪 Nomor Contoh Sebelumnya";
+  var idx = KATEGORI_REKAP_27.indexOf(kat);
+  return (idx >= 0 ? ((idx + 1) + ". " + kat) : kat);
+}
+
+function sinkronFilterKategori(kat){
+  window._filterKategori = kat || "SEMUA_KATEGORI";
+  if($("selFilterKategori") && $("selFilterKategori").value !== window._filterKategori){
+    $("selFilterKategori").value = window._filterKategori;
+  }
+  if($("selKatBroadcast") && $("selKatBroadcast").value !== window._filterKategori){
+    $("selKatBroadcast").value = window._filterKategori;
+  }
+  renderTabel();
+}
+
+function renderDropdownDanChipKategori(){
+  var rows = window._rows || [];
+  var curKat = window._filterKategori || "SEMUA_KATEGORI";
+  var counts = { "SEMUA_KATEGORI": { total: rows.length, hp: 0 }, "CONTOH_SEBELUMNYA": { total: 0, hp: 0 } };
+  KATEGORI_REKAP_27.forEach(function(k){ counts[k] = { total: 0, hp: 0 }; });
+
+  rows.forEach(function(g){
+    var k = getKategoriRekapTamu(g);
+    var okHp = hasValidHp(g.hp);
+    if(okHp) counts["SEMUA_KATEGORI"].hp++;
+    if(!counts[k]) counts[k] = { total: 0, hp: 0 };
+    counts[k].total++;
+    if(okHp) counts[k].hp++;
+  });
+
+  var optsHtml =
+    '<option value="SEMUA_KATEGORI">📂 Semua Kategori (' + counts["SEMUA_KATEGORI"].total + ' tamu · ' + counts["SEMUA_KATEGORI"].hp + ' siap WA)</option>' +
+    '<option value="CONTOH_SEBELUMNYA">🧪 Nomor Contoh Sebelumnya (' + counts["CONTOH_SEBELUMNYA"].total + ' tamu · ' + counts["CONTOH_SEBELUMNYA"].hp + ' siap WA)</option>' +
+    KATEGORI_REKAP_27.map(function(k, i){
+      var c = counts[k] || { total: 0, hp: 0 };
+      var noHp = c.total - c.hp;
+      var info = c.total + " tamu · " + c.hp + " ada HP" + (noHp > 0 ? (" · " + noHp + " belum ada HP") : "");
+      return '<option value="' + esc(k) + '">' + (i + 1) + '. ' + esc(k) + ' (' + info + ')</option>';
+    }).join("");
+
+  if($("selFilterKategori")){
+    $("selFilterKategori").innerHTML = optsHtml;
+    $("selFilterKategori").value = curKat;
+  }
+  if($("selKatBroadcast")){
+    $("selKatBroadcast").innerHTML = optsHtml;
+    $("selKatBroadcast").value = curKat;
+  }
+  if($("chipKategoriBar")){
+    var chips = [
+      { id: "SEMUA_KATEGORI", lbl: "📂 Semua (" + counts["SEMUA_KATEGORI"].total + ")" },
+      { id: "CONTOH_SEBELUMNYA", lbl: "🧪 Nomor Contoh (" + counts["CONTOH_SEBELUMNYA"].total + ")" }
+    ];
+    KATEGORI_REKAP_27.forEach(function(k, i){
+      var c = counts[k] || { total: 0, hp: 0 };
+      chips.push({ id: k, lbl: (i + 1) + ". " + k + " (" + c.hp + "/" + c.total + ")" });
+    });
+    $("chipKategoriBar").innerHTML = chips.map(function(ch){
+      var act = (ch.id === curKat) ? " active" : "";
+      var cls = (ch.id === "CONTOH_SEBELUMNYA") ? "fbtn f-ok" : "fbtn";
+      var idSafe = esc(ch.id).replace(/'/g, "\\'");
+      return '<button type="button" class="' + cls + act + '" style="font-size:11.5px;padding:5px 9px" onclick="sinkronFilterKategori(\'' + idSafe + '\')">' + esc(ch.lbl) + '</button>';
+    }).join("");
+  }
+}
+
 function setFilterTamu(f){
   window._filterTamu = f;
-  var ids = ["semua","tradisi","hut","gagal","belum","terkirim","konf"];
+  var ids = ["semua","tradisi","hut","adahp","nohp","gagal","belum","terkirim","konf"];
   for(var i=0;i<ids.length;i++){
     var el = $("fb_"+ids[i]);
     if(el) el.classList.toggle("active", ids[i]===f);
@@ -548,23 +662,34 @@ function ubahJenisTamu(token, jenisBaru){
 }
 
 function renderTabel(){
-  var rows = window._rows || [];
+  var allRows = window._rows || [];
+  renderDropdownDanChipKategori();
+  var kat = window._filterKategori || "SEMUA_KATEGORI";
+  var rows = allRows.filter(function(g){
+    if(kat === "SEMUA_KATEGORI") return true;
+    return getKategoriRekapTamu(g) === kat;
+  });
+
   var q = (($("qCari") && $("qCari").value) || "").trim().toLowerCase();
   var f = window._filterTamu || "semua";
 
-  var nSemua = rows.length, nTradisi = 0, nHut = 0, nGagal = 0, nBelum = 0, nTerkirim = 0, nKonf = 0;
+  var nSemua = rows.length, nTradisi = 0, nHut = 0, nAdaHp = 0, nNoHp = 0, nGagal = 0, nBelum = 0, nTerkirim = 0, nKonf = 0;
   rows.forEach(function(g){
     var jns = normJenis(g.jenis || g.kategori);
     if(jns === "HUT") nHut++; else nTradisi++;
+    var okHp = hasValidHp(g.hp);
+    if(okHp) nAdaHp++; else nNoHp++;
     var st = String(g.invite_status || "");
     if(st === "gagal") nGagal++;
     else if(st === "terkirim") nTerkirim++;
-    else nBelum++;
+    else if(okHp) nBelum++;
     if(g.hadir) nKonf++;
   });
   if($("nb_semua")) $("nb_semua").textContent = nSemua;
   if($("nb_tradisi")) $("nb_tradisi").textContent = nTradisi;
   if($("nb_hut")) $("nb_hut").textContent = nHut;
+  if($("nb_adahp")) $("nb_adahp").textContent = nAdaHp;
+  if($("nb_nohp")) $("nb_nohp").textContent = nNoHp;
   if($("nb_gagal")) $("nb_gagal").textContent = nGagal;
   if($("nb_belum")) $("nb_belum").textContent = nBelum;
   if($("nb_terkirim")) $("nb_terkirim").textContent = nTerkirim;
@@ -576,14 +701,17 @@ function renderTabel(){
   var filtered = rows.filter(function(g){
     var st = String(g.invite_status || "");
     var jns = normJenis(g.jenis || g.kategori);
+    var okHp = hasValidHp(g.hp);
     if(f === "tradisi" && jns !== "TRADISI") return false;
     if(f === "hut" && jns !== "HUT") return false;
+    if(f === "adahp" && !okHp) return false;
+    if(f === "nohp" && okHp) return false;
     if(f === "gagal" && st !== "gagal") return false;
     if(f === "terkirim" && st !== "terkirim") return false;
-    if(f === "belum" && (st === "terkirim" || st === "gagal")) return false;
+    if(f === "belum" && (!okHp || st === "terkirim" || st === "gagal")) return false;
     if(f === "konf" && !g.hadir) return false;
     if(q){
-      var hay = (String(g.nama||"")+" "+String(g.hp||"")+" "+String(g.org||"")).toLowerCase();
+      var hay = (String(g.nama||"")+" "+String(g.hp||"")+" "+String(g.org||"")+" "+String(g.ket||"")).toLowerCase();
       if(hay.indexOf(q) < 0) return false;
     }
     return true;
@@ -593,24 +721,34 @@ function renderTabel(){
     var jns = normJenis(g.jenis || g.kategori);
     var u = linkLampiran(g.nama, jns);
     var nmSafe = esc(g.nama).replace(/'/g,"");
+    var okHp = hasValidHp(g.hp);
+    var katG = getKategoriRekapTamu(g);
+    var badgeKat = (katG === "CONTOH_SEBELUMNYA")
+      ? '<span class="pill" style="background:#1c3144;border:1px solid #4aa3df;color:#9ad4ff;font-size:10.5px">🧪 Nomor Contoh: '+esc(g.org||"Uji Coba")+'</span>'
+      : '<span class="pill" style="background:#262112;border:1px solid rgba(216,170,43,.45);color:#f2c63d;font-size:10.5px">🗂️ '+esc(g.org)+'</span>';
+    var ketHtml = g.ket ? (' <span class="muted" style="font-size:11px">· '+esc(g.ket)+'</span>') : '';
+    var hpHtml = okHp
+      ? ('<b>'+esc(g.hp)+'</b> <button class="b2" style="padding:2px 6px;font-size:10.5px" onclick="isiUbahHpTamu(\''+g.token+'\')" title="Ubah nomor HP">✏️</button>')
+      : ('<span class="pill p-err" style="font-size:11px">⚠️ Belum tercantum</span><br><button class="b2" style="margin-top:4px;padding:3px 8px;font-size:11px;border-color:#d8aa2b;color:#ffe08a" onclick="isiUbahHpTamu(\''+g.token+'\')">✏️ Isi No. HP</button>');
+    var stKirimHtml = okHp ? badgeKirim(g.invite_status) : '<span class="pill" style="background:#2a2215;color:#bfa76a">⏸ Menunggu No. HP</span>';
     return '<tr>'+
-      '<td><b>'+esc(g.nama)+'</b><br><span class="muted">'+esc(g.org||"—")+'</span></td>'+
-      '<td>'+esc(g.hp)+'</td>'+
+      '<td><b>'+esc(g.nama)+'</b><br>'+badgeKat+ketHtml+'</td>'+
+      '<td>'+hpHtml+'</td>'+
       '<td>'+
         '<select class="selJenis'+(jns==="HUT"?" hut":"")+'" onchange="ubahJenisTamu(\''+g.token+'\',this.value)">'+
           '<option value="TRADISI"'+(jns==="TRADISI"?" selected":"")+'>🎖️ Tradisi + HUT (07.30)</option>'+
           '<option value="HUT"'+(jns==="HUT"?" selected":"")+'>🎉 Khusus HUT (09.00)</option>'+
         '</select>'+
       '</td>'+
-      '<td>'+badgeKirim(g.invite_status)+'</td>'+
+      '<td>'+stKirimHtml+'</td>'+
       '<td>'+badgeKonf(g)+(g.confirm_waktu?'<br><span class="muted" style="font-size:11px">'+esc(g.confirm_waktu)+'</span>':'')+'</td>'+
       '<td>'+
-        '<button class="b2" onclick="kirimUlang(\''+g.token+'\',\''+nmSafe+'\')">📨 Kirim Ulang</button> '+
+        (okHp ? '<button class="b2" onclick="kirimUlang(\''+g.token+'\',\''+nmSafe+'\')">📨 Kirim WA</button> ' : '')+
         '<button class="b2" style="border-color:#2f9e57;color:#7ae2a5" onclick="pilihKonfTamu(\''+g.token+'\')">✅ Konfirmasi</button> '+
         '<a class="b2" style="text-decoration:none;display:inline-block" href="'+esc(u)+'" target="_blank" rel="noopener">📖 Undangan ↗</a> '+
         '<button class="b2" style="border-color:#c0392b;color:#ff8a7a" onclick="hapusTamu(\''+g.token+'\',\''+nmSafe+'\')">🗑 Hapus</button>'+
       '</td></tr>';
-  }).join("") || '<tr><td colspan="6" class="muted">Tidak ada tamu yang cocok dengan filter ini.</td></tr>';
+  }).join("") || '<tr><td colspan="6" class="muted">Tidak ada tamu yang cocok dengan filter kategori/status ini.</td></tr>';
 }
 
 function renderTabelKonf(){
@@ -808,17 +946,61 @@ function kirimUlang(token, nama){
     alert("✗ "+((e&&e.message)||e));
   }).kirimUlang(token);
 }
+var _stopQueueFlag = false;
+function hentikanBroadcastQueue(){
+  _stopQueueFlag = true;
+  if($("btnStopQueue")) $("btnStopQueue").style.display = "none";
+}
+
+function jalankanAntrianKirimTamu(daftar, judulProses){
+  if(!daftar || !daftar.length){
+    alert("Tidak ada tamu siap kirim (yang memiliki nomor HP valid) pada filter ini.");
+    return;
+  }
+  _stopQueueFlag = false;
+  if($("btnStopQueue")) $("btnStopQueue").style.display = "inline-block";
+  var total = daftar.length, idx = 0, terkirim = 0, gagal = [];
+
+  function langkah(){
+    if(_stopQueueFlag || idx >= total){
+      if($("btnStopQueue")) $("btnStopQueue").style.display = "none";
+      var infoSelesai = (_stopQueueFlag ? "⏹️ Pengiriman dihentikan. " : "✅ Broadcast selesai! ") +
+        "Terkirim: " + terkirim + "/" + total + " tamu" +
+        (gagal.length ? (" | Gagal (" + gagal.length + "): " + gagal.slice(0, 8).join(", ")) : ".");
+      $("stKirim").innerHTML = '<span class="' + (gagal.length ? 'err' : 'ok') + '">' + esc(infoSelesai) + '</span>';
+      muat(false);
+      return;
+    }
+    var g = daftar[idx++];
+    $("stKirim").textContent = "⏳ [" + idx + "/" + total + "] Mengirim WA (" + normJenis(g.jenis || g.kategori) + ") ke " + g.nama + " (" + g.hp + ") — Kategori: " + (g.org || "Contoh") + "...";
+    google.script.run.withSuccessHandler(function(res){
+      var ok = (res && (res.ok === true || (res.sent && res.sent > 0)));
+      if(ok){
+        terkirim++;
+        g.invite_status = "terkirim";
+      } else {
+        gagal.push(g.nama);
+        g.invite_status = "gagal";
+      }
+      renderTabel();
+      setTimeout(langkah, 1100);
+    }).withFailureHandler(function(){
+      gagal.push(g.nama);
+      setTimeout(langkah, 1100);
+    }).kirimUlang(g.token);
+  }
+  langkah();
+}
+
 function kirimUlangSemuaGagal(){
-  var gagalList = (window._rows || []).filter(function(g){ return g.invite_status === "gagal"; });
-  if(!gagalList.length){ alert("Tidak ada tamu dengan status gagal."); return; }
-  if(!confirm("Kirim ulang undangan WhatsApp ke "+gagalList.length+" tamu yang GAGAL terkirim?")) return;
-  $("stKirim").textContent = "⏳ Mengirim ulang ke "+gagalList.length+" tamu yang gagal...";
-  google.script.run.withSuccessHandler(function(res){
-    $("stKirim").textContent = "Kirim ulang selesai — Terkirim: "+(res.sent||0)+" pesan"+((res.gagal&&res.gagal.length)?" | masih gagal: "+res.gagal.join(", "):"");
-    muat(false);
-  }).withFailureHandler(function(e){
-    $("stKirim").innerHTML='<span class="err">✗ '+esc((e&&e.message)||e)+'</span>';
-  }).kirimUlangGagal();
+  var kat = window._filterKategori || "SEMUA_KATEGORI";
+  var gagalList = (window._rows || []).filter(function(g){
+    if(kat !== "SEMUA_KATEGORI" && getKategoriRekapTamu(g) !== kat) return false;
+    return g.invite_status === "gagal" && hasValidHp(g.hp);
+  });
+  if(!gagalList.length){ alert("Tidak ada tamu berstatus gagal (dengan nomor HP valid) pada filter kategori ini."); return; }
+  if(!confirm("Kirim ulang undangan WhatsApp ke " + gagalList.length + " tamu yang GAGAL pada [" + labelKategoriRekap(kat) + "]?")) return;
+  jalankanAntrianKirimTamu(gagalList, "Kirim Ulang Gagal");
 }
 function hapusTamu(token, nama){
   if(!confirm("HAPUS tamu ini secara permanen?\n"+nama+"\n\nData dihapus dari sheet dan tidak bisa dikembalikan.")) return;
@@ -859,18 +1041,139 @@ function tesKirim(){
 }
 function kirimSemua(filterJenis){
   var mode = filterJenis || "SEMUA";
-  var label = (mode === "TRADISI")
-    ? "tamu Undangan 1 (Tradisi Korps Pati 07.30 + HUT 09.00)"
-    : (mode === "HUT" ? "tamu Undangan 2 (Khusus HUT ke-80 09.00)" : "SEMUA tamu yang belum terkirim (sesuai jenis undangan masing-masing)");
-  if(!confirm("Kirim broadcast undangan WhatsApp ke "+label+"?")) return;
-  $("stKirim").textContent="⏳ Mengirim broadcast undangan...";
-  google.script.run.withSuccessHandler(function(res){
-    $("stKirim").textContent = "Terkirim: "+(res.sent||0)+" pesan"+((res.gagal&&res.gagal.length)?" | gagal: "+res.gagal.join(", "):"");
-    if(res.lanjut) $("stKirim").textContent += " | ⏩ sisa otomatis menyusul tiap 5 menit.";
-    muat(false);
-  }).withFailureHandler(function(e){
-    $("stKirim").innerHTML='<span class="err">✗ '+esc((e&&e.message)||e)+'</span>';
-  }).kirimSemuaUndangan(mode);
+  var kat = ($("selKatBroadcast") && $("selKatBroadcast").value) || window._filterKategori || "SEMUA_KATEGORI";
+  sinkronFilterKategori(kat);
+
+  var allRows = window._rows || [];
+  var dalamKat = allRows.filter(function(g){
+    if(kat === "SEMUA_KATEGORI") return true;
+    return getKategoriRekapTamu(g) === kat;
+  });
+  var tanpaHp = 0;
+  var target = dalamKat.filter(function(g){
+    var jns = normJenis(g.jenis || g.kategori);
+    if(mode === "TRADISI" && jns !== "TRADISI") return false;
+    if(mode === "HUT" && jns !== "HUT") return false;
+    if(!hasValidHp(g.hp)){ tanpaHp++; return false; }
+    if(String(g.invite_status || "") === "terkirim") return false;
+    return true;
+  });
+
+  if(!target.length){
+    alert("Tidak ada tamu yang belum terkirim (dengan nomor HP valid) pada:\n• Kategori: " + labelKategoriRekap(kat) + "\n• Jenis: " + mode + (tanpaHp ? ("\n\n(" + tanpaHp + " tamu di kategori ini belum memiliki nomor HP dan dilewati otomatis)") : ""));
+    return;
+  }
+
+  var labelJns = (mode === "TRADISI")
+    ? "🎖️ Undangan 1: Tradisi Korps Pati (07.30) + HUT (09.00)"
+    : (mode === "HUT" ? "🎉 Undangan 2: Khusus HUT ke-80 (09.00)" : "Semua Jenis (Tradisi+HUT & Khusus HUT sesuai tamu)");
+
+  var msgKonf = "KIRIM BROADCAST UNDANGAN WHATSAPP\n\n" +
+    "🗂️ Filter Kategori: " + labelKategoriRekap(kat) + "\n" +
+    "🎫 Jenis Undangan: " + labelJns + "\n" +
+    "📱 Jumlah Siap Kirim: " + target.length + " nomor WA aktif" +
+    (tanpaHp > 0 ? ("\n⚠️ Dilewati otomatis (HP belum tercantum): " + tanpaHp + " tamu") : "") +
+    "\n\nLanjutkan pengiriman broadcast sekarang?";
+
+  if(!confirm(msgKonf)) return;
+  jalankanAntrianKirimTamu(target, "Broadcast Kategori");
+}
+
+function isiUbahHpTamu(token){
+  var rows = window._rows || [];
+  var g = null;
+  for(var i=0;i<rows.length;i++){ if(rows[i].token === token){ g = rows[i]; break; } }
+  if(!g) return;
+  var cur = hasValidHp(g.hp) ? g.hp : "";
+  var baru = prompt("Masukkan Nomor WhatsApp untuk:\n" + g.nama + " (" + (g.org || "Contoh") + ")\n\nContoh: 081234567890", cur);
+  if(baru === null) return;
+  baru = String(baru || "").trim();
+  if(!baru){ alert("Nomor WhatsApp tidak boleh kosong."); return; }
+  var d = {
+    nama: g.nama,
+    hp: baru,
+    org: g.org || "",
+    jenis: normJenis(g.jenis || g.kategori),
+    kategori: normJenis(g.jenis || g.kategori),
+    ket: g.ket || ""
+  };
+  google.script.run.withSuccessHandler(function(r){
+    if(r && r.ok){
+      google.script.run.withSuccessHandler(function(){
+        muat(false);
+      }).hapusTamu(token);
+    } else {
+      alert("✗ Gagal menyimpan nomor HP baru.");
+    }
+  }).tambahTamu(d);
+}
+
+function ubahJenisSatuKategori(jenisTarget){
+  var kat = window._filterKategori || "SEMUA_KATEGORI";
+  if(kat === "SEMUA_KATEGORI"){
+    alert("Pilih salah satu Kategori terlebih dahulu pada dropdown Filter Kategori di atas agar tidak mengubah seluruh kategori sekaligus.");
+    return;
+  }
+  var jns = normJenis(jenisTarget);
+  var target = (window._rows || []).filter(function(g){
+    return getKategoriRekapTamu(g) === kat && normJenis(g.jenis || g.kategori) !== jns;
+  });
+  if(!target.length){
+    alert("Seluruh tamu pada kategori [" + labelKategoriRekap(kat) + "] sudah berjenis " + jns + ".");
+    return;
+  }
+  var lbl = (jns === "HUT") ? "🎉 Undangan 2: Khusus HUT ke-80 (09.00 WIB)" : "🎖️ Undangan 1: Tradisi Korps Pati (07.30) + HUT (09.00)";
+  if(!confirm("Ubah " + target.length + " tamu pada kategori [" + labelKategoriRekap(kat) + "] menjadi:\n" + lbl + " ?")) return;
+  var idx = 0;
+  function step(){
+    if(idx >= target.length){
+      muat(false);
+      alert("✅ Selesai mengubah jenis undangan untuk kategori " + labelKategoriRekap(kat) + ".");
+      return;
+    }
+    var g = target[idx++];
+    g.jenis = jns; g.kategori = jns;
+    renderTabel();
+    google.script.run.withSuccessHandler(function(){ step(); }).withFailureHandler(function(){ step(); }).setJenisUndangan(g.token, jns);
+  }
+  step();
+}
+
+function sinkronRekapPdfKeSheet(){
+  var existing = {};
+  (window._rows || []).forEach(function(g){
+    var key = (String(g.nama||"").trim().toLowerCase() + "|" + String(g.org||"").trim().toUpperCase());
+    existing[key] = true;
+  });
+  var missing = REKAP_TAMU_313.filter(function(e){
+    var key = (String(e.nama||"").trim().toLowerCase() + "|" + String(e.kategori_rekap||"").trim().toUpperCase());
+    return !existing[key];
+  });
+  if(!missing.length){
+    alert("✅ Seluruh 313 tamu dari Rekap PDF (27 Kategori) sudah lengkap di dalam Spreadsheet (dan nomor contoh sebelumnya tetap terjaga).");
+    return;
+  }
+  if(!confirm("Ditemukan " + missing.length + " tamu dari Rekap PDF yang belum ada di Spreadsheet.\nTambahkan sekarang tanpa menghapus nomor contoh sebelumnya?")) return;
+  var batchSize = 15, idx = 0, addedTotal = 0;
+  function kirimBatch(){
+    if(idx >= missing.length){
+      alert("✅ Berhasil menyinkronkan " + addedTotal + " tamu Rekap PDF ke Spreadsheet!");
+      muat(false);
+      return;
+    }
+    var chunk = missing.slice(idx, idx + batchSize).map(function(c){
+      return { nama: c.nama, hp: c.hp, org: c.kategori_rekap, jenis: c.jenis, kategori: c.jenis, ket: c.ket || "" };
+    });
+    idx += batchSize;
+    $("stKirim").textContent = "⏳ Menyinkronkan data Rekap PDF (" + Math.min(idx, missing.length) + "/" + missing.length + ")...";
+    google.script.run.withSuccessHandler(function(res){
+      addedTotal += (res && res.added) || 0;
+      kirimBatch();
+    }).withFailureHandler(function(){
+      kirimBatch();
+    }).importTamuDetail(chunk);
+  }
+  kirimBatch();
 }
 function enableAuto(){
   google.script.run.withSuccessHandler(function(j){
