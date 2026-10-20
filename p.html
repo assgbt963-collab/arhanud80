@@ -201,10 +201,10 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
 <div class="bg"></div><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 <div class="wrap">
   <div class="nav">
-    <a href="index.html?v=20261020d" onclick="this.href='index.html?v='+Date.now()">🏠 Beranda</a>
-    <a class="on" href="p.html?v=20261020d" onclick="this.href='p.html?v='+Date.now()">📲 Portal Broadcast</a>
-    <a href="https://undangan.arhanud80.online/lampiran?jenis=tradisi&v=20261020d" target="_blank" rel="noopener">🎖️ Undangan 1: Tradisi + HUT (07.30) ↗</a>
-    <a href="https://undangan.arhanud80.online/lampiran?jenis=hut&v=20261020d" target="_blank" rel="noopener">🎉 Undangan 2: Khusus HUT (09.00) ↗</a>
+    <a href="index.html?v=20261020e" onclick="this.href='index.html?v='+Date.now()">🏠 Beranda</a>
+    <a class="on" href="p.html?v=20261020e" onclick="this.href='p.html?v='+Date.now()">📲 Portal Broadcast</a>
+    <a href="https://undangan.arhanud80.online/lampiran?jenis=tradisi&v=20261020e" target="_blank" rel="noopener">🎖️ Undangan 1: Tradisi + HUT (07.30) ↗</a>
+    <a href="https://undangan.arhanud80.online/lampiran?jenis=hut&v=20261020e" target="_blank" rel="noopener">🎉 Undangan 2: Khusus HUT (09.00) ↗</a>
     <a href="javascript:void(0)" onclick="bersihkanCacheAplikasi()" style="border-color:#2f9e57;color:#7ae2a5">⚡ Refresh &amp; Bersihkan Cache</a>
   </div>
   <div class="logos">
@@ -498,10 +498,10 @@ var DEFAULT_FMT_TRADISI =
   "Dengan hormat,\n" +
   "Komandan Pusat Kesenjataan Arhanud TNI AD mengharap dengan hormat kehadiran Bapak/Ibu dalam rangkaian acara:\n\n" +
   "1️⃣ *Tradisi Laporan Korps Pati Arhanud*\n" +
-  "🕗 Pukul 07.30 WIB\n\n" +
+  "🕗 *Waktu:* Pukul 07.30 WIB\n\n" +
   "2️⃣ *Syukuran HUT ke-80 Arhanud TNI AD*\n" +
-  "🕘 Pukul 09.00 WIB\n\n" +
-  "📅 *Hari/Tanggal:* {tanggal}\n" +
+  "🕘 *Waktu:* Pukul 09.00 WIB\n\n" +
+  "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n" +
   "📍 *Tempat:* {tempat}\n" +
   "👔 *Pakaian:* Militer PDU IV · Persit PSU · Sipil Bebas Rapi\n" +
   "_(Dimohon hadir 15 menit sebelum acara dimulai)_\n\n" +
@@ -519,8 +519,8 @@ var DEFAULT_FMT_HUT =
   "di Tempat\n\n" +
   "Dengan hormat,\n" +
   "Komandan Pusat Kesenjataan Arhanud TNI AD mengharap dengan hormat kehadiran Bapak/Ibu dalam acara *Syukuran HUT ke-80 Arhanud TNI AD*, yang akan diselenggarakan pada:\n\n" +
-  "📅 *Hari/Tanggal:* {tanggal}\n" +
-  "🕘 *Waktu:* Pukul 09.00 WIB _(Hadir 15 menit sebelum acara dimulai)_\n" +
+  "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n" +
+  "🕘 *Waktu:* Pukul 09.00 WIB _(Dimohon hadir 15 menit sebelum acara dimulai)_\n" +
   "📍 *Tempat:* {tempat}\n" +
   "👔 *Pakaian:* Militer PDU IV · Persit PSU · Sipil Bebas Rapi\n\n" +
   "Silakan membuka tautan undangan digital berikut untuk membaca informasi lengkap acara serta melakukan konfirmasi kehadiran:\n" +
@@ -528,6 +528,23 @@ var DEFAULT_FMT_HUT =
   "Atas perhatian dan kehadiran Bapak/Ibu, kami ucapkan terima kasih.\n" +
   "_Vyati Rakca Bhala Cakti_\n" +
   "*{panitia}*";
+
+function normalisasiWaktuPesan(teks, jenis){
+  var jns = normJenis(jenis);
+  var s = String(teks || "");
+  if(jns === "HUT"){
+    s = s.replace(/08[\.:]00\s*WIB(\s*[—\-–]\s*Selesai)?/gi, "09.00 WIB")
+         .replace(/08[\.:]00/g, "09.00")
+         .replace(/\{waktu\}/g, "Pukul 09.00 WIB")
+         .replace(/\{acara\}/g, "Acara Syukuran HUT ke-80 Arhanud TNI AD");
+  } else {
+    s = s.replace(/08[\.:]00\s*WIB(\s*[—\-–]\s*Selesai)?/gi, "07.30 WIB")
+         .replace(/08[\.:]00/g, "07.30")
+         .replace(/\{waktu\}/g, "Pukul 07.30 WIB (Tradisi Laporan Korps Pati) & Pukul 09.00 WIB (Syukuran HUT ke-80 Arhanud)")
+         .replace(/\{acara\}/g, "Acara Tradisi Laporan Korps Pati Arhanud & Syukuran HUT ke-80 Arhanud TNI AD");
+  }
+  return s;
+}
 
 window._rows = [];
 window._filterTamu = "semua";
@@ -1018,20 +1035,52 @@ function isiContoh(){
     muat(false);
   }).isiDataContoh();
 }
+function ambilTeksFormatUndangan(jenis){
+  var jns = normJenis(jenis);
+  var rawTrad = ($("fBroadcastTradisi") && $("fBroadcastTradisi").value.trim()) || DEFAULT_FMT_TRADISI;
+  var rawHut  = ($("fBroadcastHut") && $("fBroadcastHut").value.trim()) || DEFAULT_FMT_HUT;
+  return (jns === "HUT") ? normalisasiWaktuPesan(rawHut, "HUT") : normalisasiWaktuPesan(rawTrad, "TRADISI");
+}
+
+function sinkronkanFormatAktifKeServer(teksAktif, cb){
+  var tHut = ambilTeksFormatUndangan("HUT");
+  google.script.run.withSuccessHandler(function(){
+    if(cb) cb();
+  }).withFailureHandler(function(){
+    if(cb) cb();
+  }).saveWaFormat(teksAktif, tHut);
+}
+
+function pulihkanFormatDefaultKeServer(){
+  var tTrad = ambilTeksFormatUndangan("TRADISI");
+  var tHut  = ambilTeksFormatUndangan("HUT");
+  google.script.run.saveWaFormat(tTrad, tHut);
+}
+
 function kirimUlang(token, nama){
-  if(!confirm("Kirim ulang undangan ke: "+nama+" ?")) return;
-  google.script.run.withSuccessHandler(function(j){
-    var sukses = (j && (j.ok === true || (j.sent && j.sent > 0)));
-    if (sukses) {
-      alert("✔ Terkirim ke " + nama);
-    } else {
-      var msg = (j && j.error) ? j.error : ((j && j.gagal && j.gagal.length) ? ("Gagal kirim ke: " + j.gagal.join(", ")) : "Gagal mengirim — cek status Device di Fonnte.");
-      alert("✗ " + msg);
-    }
-    muat(false);
-  }).withFailureHandler(function(e){
-    alert("✗ "+((e&&e.message)||e));
-  }).kirimUlang(token);
+  var g = null;
+  var rows = window._rows || [];
+  for(var i=0;i<rows.length;i++){ if(rows[i].token === token){ g = rows[i]; break; } }
+  var jns = normJenis(g && (g.jenis || g.kategori));
+  var lblJns = (jns === "HUT") ? "Undangan Syukuran (Pukul 09.00 WIB)" : "Undangan Tradisi (07.30 WIB) & Syukuran (09.00 WIB)";
+  if(!confirm("Kirim ulang " + lblJns + " ke: " + nama + " ?")) return;
+  var teksKirim = ambilTeksFormatUndangan(jns);
+  sinkronkanFormatAktifKeServer(teksKirim, function(){
+    google.script.run.withSuccessHandler(function(j){
+      if(jns === "HUT") pulihkanFormatDefaultKeServer();
+      var sukses = (j && (j.ok === true || (j.sent && j.sent > 0)));
+      if (sukses) {
+        alert("✔ Terkirim (" + lblJns + ") ke " + nama);
+      } else {
+        var msg = (j && j.error) ? j.error : ((j && j.gagal && j.gagal.length) ? ("Gagal kirim ke: " + j.gagal.join(", ")) : "Gagal mengirim — cek status Device di Fonnte.");
+        alert("✗ " + msg);
+      }
+      muat(false);
+    }).withFailureHandler(function(e){
+      if(jns === "HUT") pulihkanFormatDefaultKeServer();
+      alert("✗ "+((e&&e.message)||e));
+    }).kirimUlang(token);
+  });
 }
 var _stopQueueFlag = false;
 function hentikanBroadcastQueue(){
@@ -1039,7 +1088,7 @@ function hentikanBroadcastQueue(){
   if($("btnStopQueue")) $("btnStopQueue").style.display = "none";
 }
 
-function jalankanAntrianKirimTamu(daftar, judulProses){
+function jalankanAntrianKirimTamu(daftar, judulProses, customTemplateGetter){
   if(!daftar || !daftar.length){
     alert("Tidak ada tamu siap kirim (yang memiliki nomor HP valid) pada filter ini.");
     return;
@@ -1047,11 +1096,13 @@ function jalankanAntrianKirimTamu(daftar, judulProses){
   _stopQueueFlag = false;
   if($("btnStopQueue")) $("btnStopQueue").style.display = "inline-block";
   var total = daftar.length, idx = 0, terkirim = 0, gagal = [];
+  var lastSyncedText = null;
 
   function langkah(){
     if(_stopQueueFlag || idx >= total){
       if($("btnStopQueue")) $("btnStopQueue").style.display = "none";
-      var infoSelesai = (_stopQueueFlag ? "⏹️ Pengiriman dihentikan. " : "✅ Broadcast selesai! ") +
+      pulihkanFormatDefaultKeServer();
+      var infoSelesai = (_stopQueueFlag ? "⏹️ Pengiriman dihentikan. " : "✅ " + (judulProses || "Broadcast") + " selesai! ") +
         "Terkirim: " + terkirim + "/" + total + " tamu" +
         (gagal.length ? (" | Gagal (" + gagal.length + "): " + gagal.slice(0, 8).join(", ")) : ".");
       $("stKirim").innerHTML = '<span class="' + (gagal.length ? 'err' : 'ok') + '">' + esc(infoSelesai) + '</span>';
@@ -1059,22 +1110,35 @@ function jalankanAntrianKirimTamu(daftar, judulProses){
       return;
     }
     var g = daftar[idx++];
-    $("stKirim").textContent = "⏳ [" + idx + "/" + total + "] Mengirim WA (" + normJenis(g.jenis || g.kategori) + ") ke " + g.nama + " (" + g.hp + ") — Kategori: " + (g.org || "Contoh") + "...";
-    google.script.run.withSuccessHandler(function(res){
-      var ok = (res && (res.ok === true || (res.sent && res.sent > 0)));
-      if(ok){
-        terkirim++;
-        g.invite_status = "terkirim";
-      } else {
+    var jns = normJenis(g.jenis || g.kategori);
+    var teksKirim = customTemplateGetter ? customTemplateGetter(jns, g) : ambilTeksFormatUndangan(jns);
+    var jamInfo = (jns === "HUT") ? "09.00 WIB" : "07.30 & 09.00 WIB";
+    $("stKirim").textContent = "⏳ [" + idx + "/" + total + "] Mengirim WA (" + jns + " · " + jamInfo + ") ke " + g.nama + " (" + g.hp + ") — Kategori: " + (g.org || "Contoh") + "...";
+
+    function eksekusiKirim(){
+      google.script.run.withSuccessHandler(function(res){
+        var ok = (res && (res.ok === true || (res.sent && res.sent > 0)));
+        if(ok){
+          terkirim++;
+          g.invite_status = "terkirim";
+        } else {
+          gagal.push(g.nama);
+          g.invite_status = "gagal";
+        }
+        renderTabel();
+        setTimeout(langkah, 1100);
+      }).withFailureHandler(function(){
         gagal.push(g.nama);
-        g.invite_status = "gagal";
-      }
-      renderTabel();
-      setTimeout(langkah, 1100);
-    }).withFailureHandler(function(){
-      gagal.push(g.nama);
-      setTimeout(langkah, 1100);
-    }).kirimUlang(g.token);
+        setTimeout(langkah, 1100);
+      }).kirimUlang(g.token);
+    }
+
+    if(teksKirim !== lastSyncedText){
+      lastSyncedText = teksKirim;
+      sinkronkanFormatAktifKeServer(teksKirim, eksekusiKirim);
+    } else {
+      eksekusiKirim();
+    }
   }
   langkah();
 }
@@ -1116,15 +1180,22 @@ function hapusSemua(){
 }
 function tesKirim(){
   var n=$("ntes").value.trim();
-  var jns=$("jTes") ? $("jTes").value : "TRADISI";
+  var jns=normJenis($("jTes") ? $("jTes").value : "TRADISI");
   if(!n){ alert("Isi nomor tes dulu (contoh: 081284588834)."); return; }
-  $("stTes").textContent="⏳ Mengirim tes undangan ("+jns+") ke "+n+"…";
-  google.script.run.withSuccessHandler(function(j){
-    $("stTes").innerHTML = j.status==="sent"
-      ? '<span class="ok">✔ TERKIRIM ('+esc(jns)+') ke '+esc(n)+' ('+esc(j.nama)+')</span> — cek WhatsApp.'
-      : '<span class="err">✗ GAGAL: '+esc(j.status)+'</span> — cek koneksi Device Fonnte.';
-  }).withFailureHandler(function(e){ $("stTes").innerHTML='<span class="err">✗ '+esc((e&&e.message)||e)+'</span>'; })
-    .kirimTesUndangan(n, jns);
+  var jamKet = (jns === "HUT") ? "Khusus Syukuran 09.00 WIB" : "Tradisi 07.30 WIB & Syukuran 09.00 WIB";
+  $("stTes").textContent="⏳ Mengirim tes undangan ("+jamKet+") ke "+n+"…";
+  var teksKirim = ambilTeksFormatUndangan(jns);
+  sinkronkanFormatAktifKeServer(teksKirim, function(){
+    google.script.run.withSuccessHandler(function(j){
+      if(jns === "HUT") pulihkanFormatDefaultKeServer();
+      $("stTes").innerHTML = j.status==="sent"
+        ? '<span class="ok">✔ TERKIRIM ('+esc(jamKet)+') ke '+esc(n)+' ('+esc(j.nama)+')</span> — cek WhatsApp.'
+        : '<span class="err">✗ GAGAL: '+esc(j.status)+'</span> — cek koneksi Device Fonnte.';
+    }).withFailureHandler(function(e){
+      if(jns === "HUT") pulihkanFormatDefaultKeServer();
+      $("stTes").innerHTML='<span class="err">✗ '+esc((e&&e.message)||e)+'</span>';
+    }).kirimTesUndangan(n, jns);
+  });
 }
 function kirimSemua(filterJenis){
   var mode = filterJenis || "SEMUA";
@@ -1284,8 +1355,12 @@ function fmtErr(e){
 }
 function muatFormat(){
   google.script.run.withSuccessHandler(function(j){
-    var bTrad = (j && typeof j.broadcast === "string" && j.broadcast.indexOf("[object") < 0 && j.broadcast.trim()) ? j.broadcast : DEFAULT_FMT_TRADISI;
-    var bHut  = (j && typeof j.broadcast_hut === "string" && j.broadcast_hut.indexOf("[object") < 0 && j.broadcast_hut.trim()) ? j.broadcast_hut : DEFAULT_FMT_HUT;
+    var bTrad = (j && typeof j.broadcast_tradisi === "string" && j.broadcast_tradisi.indexOf("[object") < 0 && j.broadcast_tradisi.trim())
+      ? normalisasiWaktuPesan(j.broadcast_tradisi, "TRADISI")
+      : DEFAULT_FMT_TRADISI;
+    var bHut  = (j && typeof j.broadcast_hut === "string" && j.broadcast_hut.indexOf("[object") < 0 && j.broadcast_hut.trim())
+      ? normalisasiWaktuPesan(j.broadcast_hut, "HUT")
+      : DEFAULT_FMT_HUT;
     $("fBroadcastTradisi").value = bTrad;
     $("fBroadcastHut").value = bHut;
   }).withFailureHandler(function(e){
@@ -1299,11 +1374,11 @@ function fillTag(x, g, jenis){
   var jns = normJenis(jenis || (g&&(g.jenis||g.kategori)) || "TRADISI");
   var st = { nama:nama,
              tanggal:"Selasa, 17 November 2026",
-             waktu:(jns==="HUT"?"Pukul 09.00 WIB":"Pukul 07.30 WIB (Tradisi Pati) & 09.00 WIB (HUT ke-80)"),
+             waktu:(jns==="HUT"?"Pukul 09.00 WIB":"Pukul 07.30 WIB (Tradisi Laporan Korps Pati) & Pukul 09.00 WIB (Syukuran HUT ke-80 Arhanud)"),
              tempat:"Aula R. Harsoyo Pussenarhanud, Jl. Sriwijaya Raya No. 1, Cimahi",
              panitia:"Panitia HUT ke-80 Arhanud TNI AD",
              link:linkLampiran(nama, jns) };
-  return String(x||"").replace(/\{nama\}/g,st.nama).replace(/\{tanggal\}/g,st.tanggal)
+  return normalisasiWaktuPesan(x, jns).replace(/\{nama\}/g,st.nama).replace(/\{tanggal\}/g,st.tanggal)
     .replace(/\{waktu\}/g,st.waktu).replace(/\{tempat\}/g,st.tempat)
     .replace(/\{link\}/g,st.link).replace(/\{panitia\}/g,st.panitia);
 }
@@ -1312,12 +1387,14 @@ function previewFmt(){
   var isHut = (window._tabFmt === "HUT");
   var raw = isHut ? $("fBroadcastHut").value : $("fBroadcastTradisi").value;
   var b = fillTag(raw, g, isHut ? "HUT" : "TRADISI") || "(kosong)";
-  var judul = isHut ? "KONSEP 2 — KHUSUS HUT KE-80 (09.00 WIB)" : "KONSEP 1 — TRADISI KORPS PATI (07.30) & HUT (09.00)";
+  var judul = isHut ? "KONSEP 2 — KHUSUS SYUKURAN HUT KE-80 (09.00 WIB)" : "KONSEP 1 — TRADISI KORPS PATI (07.30 WIB) & SYUKURAN HUT (09.00 WIB)";
   alert("PREVIEW " + judul + ":\n\n" + b);
 }
 function simpanFmt(){
-  var tTrad = $("fBroadcastTradisi").value;
-  var tHut  = $("fBroadcastHut").value;
+  var tTrad = normalisasiWaktuPesan($("fBroadcastTradisi").value, "TRADISI");
+  var tHut  = normalisasiWaktuPesan($("fBroadcastHut").value, "HUT");
+  $("fBroadcastTradisi").value = tTrad;
+  $("fBroadcastHut").value = tHut;
   $("stFmt").textContent="⏳ Menyimpan kedua format undangan…";
   google.script.run.withSuccessHandler(function(j){
     $("stFmt").innerHTML = (j && j.ok)
@@ -1328,7 +1405,7 @@ function simpanFmt(){
   }).saveWaFormat(tTrad, tHut);
 }
 function resetFmt(){
-  if(!confirm("Kembalikan kedua format pesan WA (Konsep 1 & Konsep 2) ke bawaan sistem?")) return;
+  if(!confirm("Kembalikan kedua format pesan WA (Konsep 1: 07.30 & 09.00 WIB, Konsep 2: 09.00 WIB) ke bawaan sistem?")) return;
   $("fBroadcastTradisi").value = DEFAULT_FMT_TRADISI;
   $("fBroadcastHut").value = DEFAULT_FMT_HUT;
   google.script.run.withSuccessHandler(function(j){
@@ -1340,51 +1417,79 @@ function resetFmt(){
   }).resetWaFormat();
 }
 
-/* ===== FITUR BARU 1: PEMBERITAHUAN BROADCAST H-3, H-1 & HARI H ===== */
+/* ===== FITUR BARU 1: PEMBERITAHUAN BROADCAST H-3, H-1 & HARI H (TENGGAT WAKTU PELAKSANAAN ACARA) ===== */
 var DEFAULT_REM_H3 =
-  "*PENGINGAT H-3: UNDANGAN {acara}*\n\n" +
+  "*PENGINGAT WAKTU PELAKSANAAN ACARA (H-3)*\n" +
+  "*{acara}*\n\n" +
   "Kepada Yth.\n*{nama}*\ndi Tempat\n\n" +
-  "Dengan hormat,\nMengingatkan kembali bahwa *3 hari lagi* akan diselenggarakan rangkaian kegiatan:\n\n" +
-  "📌 *Acara:* {acara}\n" +
-  "📅 *Hari/Tanggal:* {tanggal}\n" +
-  "🕗 *Waktu:* {waktu}\n" +
+  "Dengan hormat,\n" +
+  "Kami mengingatkan kembali mengenai tenggat waktu pelaksanaan *{acara}* yang akan dilaksanakan dalam *3 hari lagi (H-3)*, yaitu pada:\n\n" +
+  "⏳ *Tenggat Waktu:* H-3 (3 Hari Menjelang Pelaksanaan Acara)\n" +
+  "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n" +
+  "🕗 *Waktu Pelaksanaan:* {waktu}\n" +
+  "_(Dimohon hadir 15 menit sebelum acara dimulai)_\n" +
   "📍 *Tempat:* {tempat}\n" +
   "👔 *Pakaian:* Militer PDU IV · Persit PSU · Sipil Bebas Rapi\n\n" +
-  "Bagi Bapak/Ibu yang belum melakukan konfirmasi kehadiran, silakan mengakses tautan undangan digital berikut:\n" +
+  "Bagi Bapak/Ibu yang belum melakukan konfirmasi kehadiran, mohon berkenan melakukan konfirmasi melalui tautan undangan digital berikut:\n" +
   "{link}\n\n" +
   "Atas perhatian dan kehadiran Bapak/Ibu, kami ucapkan terima kasih.\n" +
   "_Vyati Rakca Bhala Cakti_\n*{panitia}*";
 
 var DEFAULT_REM_H1 =
-  "*PENGINGAT H-1 (BESOK): UNDANGAN {acara}*\n\n" +
+  "*PENGINGAT WAKTU PELAKSANAAN ACARA (H-1 / BESOK)*\n" +
+  "*{acara}*\n\n" +
   "Kepada Yth.\n*{nama}*\ndi Tempat\n\n" +
-  "Dengan hormat,\nMengingatkan kembali bahwa *besok* akan dilaksanakan:\n\n" +
-  "📌 *Acara:* {acara}\n" +
-  "📅 *Hari/Tanggal:* {tanggal}\n" +
-  "🕗 *Waktu:* {waktu} _(Dimohon hadir 15 menit sebelum acara dimulai)_\n" +
+  "Dengan hormat,\n" +
+  "Kami mengingatkan kembali mengenai tenggat waktu pelaksanaan *{acara}* yang akan dilaksanakan *besok (H-1 / 1 hari lagi)*, yaitu pada:\n\n" +
+  "⏳ *Tenggat Waktu:* H-1 (1 Hari Menjelang Pelaksanaan Acara / Besok)\n" +
+  "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n" +
+  "🕗 *Waktu Pelaksanaan:* {waktu}\n" +
+  "_(Dimohon hadir 15 menit sebelum acara dimulai)_\n" +
   "📍 *Tempat:* {tempat}\n" +
   "👔 *Pakaian:* Militer PDU IV · Persit PSU · Sipil Bebas Rapi\n\n" +
-  "Informasi lengkap undangan digital dapat dilihat pada tautan berikut:\n" +
+  "Informasi lengkap undangan digital dan konfirmasi kehadiran dapat diakses melalui tautan berikut:\n" +
   "{link}\n\n" +
   "Kami sangat menantikan kehadiran Bapak/Ibu. Terima kasih.\n" +
   "_Vyati Rakca Bhala Cakti_\n*{panitia}*";
 
 var DEFAULT_REM_H0 =
-  "*PENGINGAT HARI H (HARI INI): {acara}*\n\n" +
+  "*PENGINGAT WAKTU PELAKSANAAN ACARA (HARI H / HARI INI)*\n" +
+  "*{acara}*\n\n" +
   "Kepada Yth.\n*{nama}*\ndi Tempat\n\n" +
-  "Selamat Pagi,\nDengan hormat kami mengingatkan bahwa *hari ini* diselenggarakan:\n\n" +
-  "📌 *Acara:* {acara}\n" +
-  "📅 *Hari/Tanggal:* {tanggal}\n" +
-  "🕗 *Waktu:* {waktu} _(Dimohon hadir 15 menit sebelum acara dimulai)_\n" +
+  "Selamat Pagi,\n" +
+  "Dengan hormat kami mengingatkan bahwa *hari ini (Hari H)* telah tiba waktu pelaksanaan *{acara}*, yang diselenggarakan pada:\n\n" +
+  "⏳ *Tenggat Waktu:* Hari H (Hari Pelaksanaan Acara — Hari Ini)\n" +
+  "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n" +
+  "🕗 *Waktu Pelaksanaan:* {waktu}\n" +
+  "_(Dimohon hadir 15 menit sebelum acara dimulai)_\n" +
   "📍 *Tempat:* {tempat}\n" +
   "👔 *Pakaian:* Militer PDU IV · Persit PSU · Sipil Bebas Rapi\n\n" +
-  "Panduan lokasi (Google Maps) & undangan digital dapat dibuka melalui tautan berikut:\n" +
+  "Panduan lokasi (Google Maps) dan undangan digital dapat dibuka melalui tautan berikut:\n" +
   "{link}\n\n" +
-  "Selamat datang di Mapussenarhanud Cimahi. Terima kasih.\n" +
+  "Selamat datang di Mapussenarhanud Cimahi. Atas kehadiran Bapak/Ibu, kami ucapkan terima kasih.\n" +
   "_Vyati Rakca Bhala Cakti_\n*{panitia}*";
 
 window._tabRem = "H3";
 window._remTexts = { H3: DEFAULT_REM_H3, H1: DEFAULT_REM_H1, H0: DEFAULT_REM_H0 };
+
+function rakitTemplateReminderUntukJenis(tahap, jenis){
+  var t = String(tahap || window._tabRem || "H3").toUpperCase();
+  if($("fReminderText") && window._tabRem === t){
+    window._remTexts[t] = $("fReminderText").value;
+  }
+  var raw = window._remTexts[t] || (t === "H1" ? DEFAULT_REM_H1 : (t === "H0" ? DEFAULT_REM_H0 : DEFAULT_REM_H3));
+  var jns = normJenis(jenis);
+  var acara = (jns === "HUT")
+    ? "Acara Syukuran HUT ke-80 Arhanud TNI AD"
+    : "Acara Tradisi Laporan Korps Pati Arhanud & Syukuran HUT ke-80 Arhanud TNI AD";
+  var waktu = (jns === "HUT")
+    ? "Pukul 09.00 WIB (Syukuran HUT ke-80 Arhanud)"
+    : "Pukul 07.30 WIB (Tradisi Laporan Korps Pati) & Pukul 09.00 WIB (Syukuran HUT ke-80 Arhanud)";
+  return String(raw || "")
+    .replace(/\{acara\}/g, acara)
+    .replace(/\{waktu\}/g, waktu)
+    .replace(/\{tanggal\}/g, "Selasa, 17 November 2026");
+}
 
 function pilihTabReminder(tahap){
   if(window._tabRem && $("fReminderText")){
@@ -1404,9 +1509,9 @@ function pilihTabReminder(tahap){
 function muatFormatReminder(){
   google.script.run.withSuccessHandler(function(j){
     if(j && j.ok){
-      window._remTexts.H3 = j.rem_h3 || DEFAULT_REM_H3;
-      window._remTexts.H1 = j.rem_h1 || DEFAULT_REM_H1;
-      window._remTexts.H0 = j.rem_h0 || DEFAULT_REM_H0;
+      window._remTexts.H3 = (j.rem_h3 && j.rem_h3.indexOf("Tenggat Waktu") >= 0) ? j.rem_h3 : DEFAULT_REM_H3;
+      window._remTexts.H1 = (j.rem_h1 && j.rem_h1.indexOf("Tenggat Waktu") >= 0) ? j.rem_h1 : DEFAULT_REM_H1;
+      window._remTexts.H0 = (j.rem_h0 && j.rem_h0.indexOf("Tenggat Waktu") >= 0) ? j.rem_h0 : DEFAULT_REM_H0;
       if($("fReminderText")) $("fReminderText").value = window._remTexts[window._tabRem || "H3"];
       if(j.jadwal_aktif && $("btnJadwalH")){
         $("btnJadwalH").textContent = "✅ JADWAL OTOMATIS H-3, H-1 & HARI H AKTIF";
@@ -1416,21 +1521,11 @@ function muatFormatReminder(){
 }
 
 function previewReminder(jenisContoh){
-  if($("fReminderText")) window._remTexts[window._tabRem] = $("fReminderText").value;
-  var raw = window._remTexts[window._tabRem] || "";
   var jns = normJenis(jenisContoh);
   var nama = (window._g0 && window._g0.nama) || "Brigjen TNI Budi Hartono";
-  var acara = (jns === "HUT")
-    ? "Syukuran HUT ke-80 Arhanud TNI AD"
-    : "Tradisi Laporan Korps Pati Arhanud & Syukuran HUT ke-80 Arhanud TNI AD";
-  var waktu = (jns === "HUT")
-    ? "Pukul 09.00 WIB"
-    : "Pukul 07.30 WIB (Tradisi Korps Pati) & Pukul 09.00 WIB (Syukuran HUT ke-80)";
-  var teks = raw
+  var tpl = rakitTemplateReminderUntukJenis(window._tabRem, jns);
+  var teks = tpl
     .replace(/\{nama\}/g, nama)
-    .replace(/\{acara\}/g, acara)
-    .replace(/\{waktu\}/g, waktu)
-    .replace(/\{tanggal\}/g, "Selasa, 17 November 2026")
     .replace(/\{tempat\}/g, "Aula R. Harsoyo Pussenarhanud, Jl. Sriwijaya Raya No. 1, Cimahi")
     .replace(/\{link\}/g, linkLampiran(nama, jns))
     .replace(/\{panitia\}/g, "Panitia HUT ke-80 Arhanud TNI AD");
@@ -1456,33 +1551,50 @@ function resetFormatReminder(){
 
 function tesKirimReminder(){
   var hp = $("ntesRem").value.trim() || $("ntes").value.trim();
-  var jns = $("jTesRem") ? $("jTesRem").value : "TRADISI";
+  var jns = normJenis($("jTesRem") ? $("jTesRem").value : "TRADISI");
   var tahap = window._tabRem || "H3";
   if(!hp){ alert("Isi nomor WA tes terlebih dahulu."); return; }
-  if($("fReminderText")) window._remTexts[tahap] = $("fReminderText").value;
-  $("stReminder").textContent = "⏳ Mengirim tes pengingat " + tahap + " (" + jns + ") ke " + hp + "...";
-  google.script.run.withSuccessHandler(function(j){
-    $("stReminder").innerHTML = (j && j.status === "sent")
-      ? '<span class="ok">✔ Tes Pengingat '+esc(tahap)+' ('+esc(jns)+') terkirim ke '+esc(hp)+'</span>'
-      : '<span class="err">✗ Gagal tes pengingat: '+esc((j&&j.status)||"cek Fonnte")+'</span>';
-  }).withFailureHandler(function(e){
-    $("stReminder").innerHTML = '<span class="err">✗ '+fmtErr(e)+'</span>';
-  }).kirimTesReminder(hp, tahap, jns);
+  var tplReminderSiap = rakitTemplateReminderUntukJenis(tahap, jns);
+  var jamKet = (jns === "HUT") ? "Syukuran 09.00 WIB" : "Tradisi 07.30 & Syukuran 09.00 WIB";
+  $("stReminder").textContent = "⏳ Mengirim tes pengingat " + tahap + " (" + jamKet + ") ke " + hp + "...";
+  sinkronkanFormatAktifKeServer(tplReminderSiap, function(){
+    google.script.run.withSuccessHandler(function(j){
+      pulihkanFormatDefaultKeServer();
+      $("stReminder").innerHTML = (j && j.status === "sent")
+        ? '<span class="ok">✔ Tes Pengingat '+esc(tahap)+' ('+esc(jamKet)+') terkirim ke '+esc(hp)+'</span>'
+        : '<span class="err">✗ Gagal tes pengingat: '+esc((j&&j.status)||"cek Fonnte")+'</span>';
+    }).withFailureHandler(function(e){
+      pulihkanFormatDefaultKeServer();
+      $("stReminder").innerHTML = '<span class="err">✗ '+fmtErr(e)+'</span>';
+    }).kirimTesUndangan(hp, jns);
+  });
 }
 
 function kirimBroadcastReminder(){
   var tahap = window._tabRem || "H3";
   var sasaran = $("targetReminder") ? $("targetReminder").value : "SEMUA_AKTIF";
-  var lbl = (tahap === "H3") ? "H-3 (3 Hari Sebelum Acara)" : (tahap === "H1" ? "H-1 (Besok Acara)" : "Hari H (Hari Pelaksanaan)");
-  if(!confirm("Kirim Broadcast Pemberitahuan " + lbl + " sekarang ke kategori sasaran: " + sasaran + "?")) return;
-  $("stReminder").textContent = "⏳ Mengirim broadcast pengingat " + lbl + "...";
-  google.script.run.withSuccessHandler(function(res){
-    $("stReminder").innerHTML = '<span class="ok">✔ Pengingat '+esc(lbl)+' terkirim ke '+(res.sent||0)+' tamu</span>' +
-      ((res.gagal && res.gagal.length) ? ' | <span class="err">Gagal: '+esc(res.gagal.join(", "))+'</span>' : '');
-    muat(false);
-  }).withFailureHandler(function(e){
-    $("stReminder").innerHTML = '<span class="err">✗ '+fmtErr(e)+'</span>';
-  }).kirimReminderMassal(tahap, sasaran);
+  var lbl = (tahap === "H3") ? "H-3 (3 Hari Menjelang Pelaksanaan Acara)" : (tahap === "H1" ? "H-1 (Besok Hari Pelaksanaan Acara)" : "Hari H (Hari Pelaksanaan Acara)");
+  var allRows = window._rows || [];
+  var target = allRows.filter(function(g){
+    if(!hasValidHp(g.hp)) return false;
+    var h = String(g.hadir || "").trim().toUpperCase();
+    var jns = normJenis(g.jenis || g.kategori);
+    if(sasaran === "SEMUA_AKTIF" && h && h !== "HADIR") return false;
+    if(sasaran === "TRADISI" && jns !== "TRADISI") return false;
+    if(sasaran === "HUT" && jns !== "HUT") return false;
+    if(sasaran === "HADIR" && h !== "HADIR") return false;
+    if(sasaran === "BELUM_KONF" && h) return false;
+    return true;
+  });
+  if(!target.length){
+    alert("Tidak ada tamu dengan nomor WA aktif yang sesuai dengan sasaran: " + sasaran);
+    return;
+  }
+  if(!confirm("Kirim Broadcast Pengingat Waktu Pelaksanaan " + lbl + " sekarang ke " + target.length + " tamu (Sasaran: " + sasaran + ")?")) return;
+  $("stReminder").textContent = "⏳ Mengirim broadcast pengingat " + lbl + " (" + target.length + " tamu)...";
+  jalankanAntrianKirimTamu(target, "Pengingat " + tahap, function(jns){
+    return rakitTemplateReminderUntukJenis(tahap, jns);
+  });
 }
 
 function aktifkanJadwalOtomatisH(){
