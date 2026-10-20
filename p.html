@@ -109,6 +109,17 @@
   .hcCard span{display:block;font-size:11px;color:#b8c4bc;margin-top:3px;font-weight:600}
   .hcCard small{display:block;font-size:10.5px;color:#7f8c84;margin-top:2px}
   .jmlBtn{padding:2px 7px;font-size:12px;border-radius:5px;background:#1f2822;color:#f2c63d;border:1px solid #d8aa2b;cursor:pointer;font-weight:800}
+
+.refreshToolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,rgba(20,38,26,.94),rgba(16,20,24,.95));border:1.5px solid #2f9e57;border-radius:12px;padding:10px 14px;margin-bottom:12px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.refreshBtnMain{background:linear-gradient(135deg,#2f9e57,#1f7a40);color:#fff;font-weight:800;border:1px solid #66e094;border-radius:9px;padding:9px 16px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;box-shadow:0 3px 12px rgba(47,158,87,.35);transition:all .18s}
+.refreshBtnMain:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.refreshBtnMain:disabled{opacity:.7;cursor:wait}
+.fabRefresh{position:fixed;right:18px;bottom:18px;z-index:999;background:linear-gradient(135deg,#2f9e57,#196635);color:#fff;font-weight:800;border:1.5px solid #7ae2a5;border-radius:999px;padding:10px 16px;font-size:12.5px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.55);display:inline-flex;align-items:center;gap:6px}
+.fabRefresh:hover{filter:brightness(1.12)}
+.secHeadRow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+@keyframes putarRefresh{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.spinRefresh{display:inline-block;animation:putarRefresh .8s linear infinite}
+
 </style>
 <script>
 /* ====== RPC SHIM v7.7 (fetch-first, fallback JSONP) ====== */
@@ -201,10 +212,10 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
 <div class="bg"></div><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 <div class="wrap">
   <div class="nav">
-    <a href="index.html?v=20261020i" onclick="this.href='index.html?v='+Date.now()">🏠 Beranda</a>
-    <a class="on" href="p.html?v=20261020i" onclick="this.href='p.html?v='+Date.now()">📲 Portal Broadcast</a>
-    <a href="https://undangan.arhanud80.online/tradisi?jenis=tradisi&v=20261020i" target="_blank" rel="noopener">🎖️ Undangan 1: Tradisi + HUT (07.30) ↗</a>
-    <a href="https://undangan.arhanud80.online/syukuran?jenis=hut&v=20261020i" target="_blank" rel="noopener">🎉 Undangan 2: Khusus HUT (09.00) ↗</a>
+    <a href="index.html?v=20261020j" onclick="this.href='index.html?v='+Date.now()">🏠 Beranda</a>
+    <a class="on" href="p.html?v=20261020j" onclick="this.href='p.html?v='+Date.now()">📲 Portal Broadcast</a>
+    <a href="https://undangan.arhanud80.online/tradisi?jenis=tradisi&v=20261020j" target="_blank" rel="noopener">🎖️ Undangan 1: Tradisi + HUT (07.30) ↗</a>
+    <a href="https://undangan.arhanud80.online/syukuran?jenis=hut&v=20261020j" target="_blank" rel="noopener">🎉 Undangan 2: Khusus HUT (09.00) ↗</a>
     <a href="javascript:void(0)" onclick="bersihkanCacheAplikasi()" style="border-color:#2f9e57;color:#7ae2a5">⚡ Refresh &amp; Bersihkan Cache</a>
   </div>
   <div class="logos">
@@ -215,6 +226,23 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
   <p class="sub">1) Tradisi Korps Pati (07.30 WIB) &amp; HUT ke-80 (09.00 WIB) &nbsp;·&nbsp; 2) Khusus Syukuran HUT ke-80 Arhanud (09.00 WIB)</p>
 
   <div id="app">
+    <div class="refreshToolbar" id="refreshToolbar">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+        <button type="button" class="refreshBtnMain" id="btnRefreshUtama" onclick="refreshDataSekarang('manual')">
+          <span id="icoRefreshUtama">🔄</span> <span id="lblRefreshUtama">REFRESH / MUAT ULANG DATA</span>
+        </button>
+        <button type="button" class="b2" id="btnToggleAutoRefresh" onclick="toggleAutoRefreshData()" style="border-color:#2f9e57;color:#7ae2a5;padding:8px 12px;font-size:12px">
+          ⏱️ Auto-Refresh 30 dtk: AKTIF
+        </button>
+        <button type="button" class="b2" onclick="bersihkanCacheAplikasi()" style="border-color:#d8aa2b;color:#ffe08a;padding:8px 12px;font-size:12px" title="Hapus cache browser lalu muat ulang halaman penuh">
+          ⚡ Bersihkan Cache &amp; Reload Penuh
+        </button>
+      </div>
+      <div style="text-align:right;flex:1;min-width:220px">
+        <div id="stRefreshInfo" style="font-size:12.5px;font-weight:700;color:#7ae2a5">✔ Data siap — 336 tamu (29 Kategori + 8 Tamu Contoh)</div>
+        <div id="lblLastRefresh" class="muted" style="font-size:11.5px">Klik tombol Refresh kapan saja untuk memuat ulang data terbaru dari Spreadsheet.</div>
+      </div>
+    </div>
     <div class="stats" id="stats">
       <div class="st"><b>320</b><span>Total Tamu (29 Kat + Contoh)</span></div>
       <div class="st"><b>260</b><span>🎖️ Tradisi+HUT (07.30)</span></div>
@@ -282,7 +310,7 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button type="button" onclick="salinKodePatchGs()" style="background:#f2c63d;color:#151208;font-weight:800;padding:9px 14px;font-size:12.5px">📋 SALIN KODE PATCH Code.gs (v20261020-v2)</button>
-          <a class="b2" href="PATCH-BROADCAST-Code.gs?v=20261020i" download="PATCH-BROADCAST-Code.gs" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 12px;font-size:12px">📥 Unduh Patch .gs</a>
+          <a class="b2" href="PATCH-BROADCAST-Code.gs?v=20261020j" download="PATCH-BROADCAST-Code.gs" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 12px;font-size:12px">📥 Unduh Patch .gs</a>
         </div>
       </div>
     </div>
@@ -317,7 +345,7 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
       <div class="btnLine" style="margin-top:6px">
         <button class="b2" onclick="enableAuto()" id="btnAuto">🔁 AKTIFKAN AUTO-LANJUT</button>
         <button class="b2" onclick="lanjut()" id="btnLanjut" style="display:none">⏩ LANJUTKAN SISA</button>
-        <button class="b2" onclick="muat(false)">🔄 MUAT ULANG</button>
+        <button class="b2" style="border-color:#2f9e57;color:#7ae2a5;font-weight:700" onclick="refreshDataSekarang('broadcast')">🔄 MUAT ULANG DATA</button>
       </div>
       <p class="muted" id="stKirim">Belum ada pengiriman.</p>
       <p class="muted" id="stAuto">-</p>
@@ -413,7 +441,10 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
     </div>
 
     <div class="card" style="overflow-x:auto">
-      <h2 style="font-size:14px;color:#d8aa2b;margin-bottom:8px">✅ DATA KONFIRMASI &amp; PERHITUNGAN JUMLAH ORANG HADIR</h2>
+      <div class="secHeadRow">
+        <h2 style="font-size:14px;color:#d8aa2b;margin:0">✅ DATA KONFIRMASI &amp; PERHITUNGAN JUMLAH ORANG HADIR</h2>
+        <button type="button" class="b2" style="border-color:#2f9e57;color:#7ae2a5;padding:5px 11px;font-size:12px;font-weight:700" onclick="refreshDataSekarang('konfirmasi')">🔄 Refresh Data Konfirmasi</button>
+      </div>
       <div class="hcGrid" id="hcSummary">
         <div class="hcCard"><b>0 Org</b><span>👥 Total Orang Hadir</span><small>Dari 0 undangan hadir</small></div>
         <div class="hcCard"><b>0 Org</b><span>🎖️ Hadir Tradisi + HUT (07.30)</span><small>0 undangan</small></div>
@@ -457,7 +488,12 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
     </div>
 
     <div class="card" style="overflow-x:auto;grid-column:1/-1">
-      <h2 style="font-size:14px;color:#d8aa2b;margin-bottom:8px">👥 DAFTAR TAMU, JENIS UNDANGAN &amp; STATUS BROADCAST</h2>
+      <div class="secHeadRow">
+        <h2 style="font-size:14px;color:#d8aa2b;margin:0">👥 DAFTAR TAMU, JENIS UNDANGAN &amp; STATUS BROADCAST</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="b2" style="border-color:#2f9e57;color:#7ae2a5;padding:6px 12px;font-size:12px;font-weight:700" onclick="refreshDataSekarang('tamu')">🔄 Refresh Daftar Tamu</button>
+        </div>
+      </div>
       <div style="background:rgba(15,18,22,.92);border:1px solid rgba(216,170,43,.4);border-radius:10px;padding:10px 12px;margin-bottom:10px">
         <div class="btnLine" style="align-items:center;margin-bottom:8px">
           <span style="font-weight:700;color:#f2c63d;font-size:13px">🗂️ Filter Kategori Tamu:</span>
@@ -499,9 +535,15 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
     </div>
 
     <div class="card" style="grid-column:1/-1">
-      <h2 style="font-size:14px;color:#d8aa2b;margin-bottom:8px">📜 LOG PENGIRIMAN BROADCAST</h2>
+      <div class="secHeadRow">
+        <h2 style="font-size:14px;color:#d8aa2b;margin:0">📜 LOG PENGIRIMAN BROADCAST</h2>
+        <button type="button" class="b2" style="border-color:#2f9e57;color:#7ae2a5;padding:5px 11px;font-size:12px;font-weight:700" onclick="refreshDataSekarang('log')">🔄 Refresh Log Broadcast</button>
+      </div>
       <div id="logBox"><p class="muted">Belum ada aktivitas.</p></div>
     </div>
+    <button type="button" class="fabRefresh" id="fabRefreshBtn" onclick="refreshDataSekarang('fab')" title="Muat ulang data tamu, konfirmasi & log terbaru dari Spreadsheet">
+      <span id="icoFabRefresh">🔄</span> <span id="lblFabRefresh">Refresh Data</span>
+    </button>
   </div>
 </div>
 
@@ -1053,6 +1095,69 @@ function terapkanDataPanitia(j, dariCacheAtauSeed){
   }
 }
 
+window._autoRefreshEnabled = true;
+window._isRefreshingData = false;
+
+function _waktuSekarangWib(){
+  var d = new Date();
+  var p = function(n){ return (n < 10 ? "0" : "") + n; };
+  return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds()) + " WIB";
+}
+
+function _setUiRefreshing(sedangMuat, pesanHasil, isErr){
+  window._isRefreshingData = sedangMuat;
+  var btn = $("btnRefreshUtama"), ico = $("icoRefreshUtama"), lbl = $("lblRefreshUtama");
+  var fabIco = $("icoFabRefresh"), fabLbl = $("lblFabRefresh");
+  var info = $("stRefreshInfo"), last = $("lblLastRefresh");
+  if(btn) btn.disabled = !!sedangMuat;
+  if(ico) ico.className = sedangMuat ? "spinRefresh" : "";
+  if(fabIco) fabIco.className = sedangMuat ? "spinRefresh" : "";
+  if(lbl) lbl.textContent = sedangMuat ? "MEMUAT ULANG DATA..." : "REFRESH / MUAT ULANG DATA";
+  if(fabLbl) fabLbl.textContent = sedangMuat ? "Memuat..." : "Refresh Data";
+  if(info && pesanHasil){
+    info.style.color = isErr ? "#ff8a8a" : (sedangMuat ? "#ffe08a" : "#7ae2a5");
+    info.textContent = pesanHasil;
+  }
+  if(!sedangMuat && !isErr && last){
+    last.textContent = "Terakhir diperbarui dari Spreadsheet: Pukul " + _waktuSekarangWib();
+  }
+}
+
+function toggleAutoRefreshData(){
+  window._autoRefreshEnabled = !window._autoRefreshEnabled;
+  var b = $("btnToggleAutoRefresh");
+  if(b){
+    b.textContent = "⏱️ Auto-Refresh 30 dtk: " + (window._autoRefreshEnabled ? "AKTIF" : "NONAKTIF");
+    b.style.borderColor = window._autoRefreshEnabled ? "#2f9e57" : "#666";
+    b.style.color = window._autoRefreshEnabled ? "#7ae2a5" : "#aaa";
+  }
+}
+
+function refreshDataSekarang(sumber){
+  try{ localStorage.removeItem("arhanud80_rows_cache_v5"); }catch(e){}
+  _setUiRefreshing(true, "⏳ Memuat ulang data tamu, konfirmasi & log terbaru dari Spreadsheet...", false);
+  google.script.run.withSuccessHandler(function(j){
+    if(j && Array.isArray(j.rows) && j.rows.length > 0){
+      terapkanDataPanitia(j, false);
+      var jml = j.rows.length;
+      var hdr = (j.stats && j.stats.hadir != null) ? j.stats.hadir : 0;
+      var org = (j.stats && j.stats.orang != null) ? j.stats.orang : 0;
+      _setUiRefreshing(false, "✔ Data berhasil dimuat ulang — " + jml + " tamu · Hadir: " + hdr + " (" + org + " org)", false);
+    } else {
+      _setUiRefreshing(false, "✔ Data dimuat ulang (" + (window._rows ? window._rows.length : 0) + " tamu)", false);
+    }
+    muatStatus();
+    muatLog();
+    if(sumber === "manual" || sumber === "format"){
+      muatFormat();
+      muatFormatReminder();
+    }
+  }).withFailureHandler(function(e){
+    _setUiRefreshing(false, "⚠️ Gagal menghubungi server, menampilkan data tersimpan (" + (window._rows ? window._rows.length : 0) + " tamu)", true);
+    muatLog();
+  }).dataPanitia();
+}
+
 function muat(senyap){
   if(!window._rows || !window._rows.length){
     var cached = null;
@@ -1071,13 +1176,22 @@ function muat(senyap){
     muatFormat();
     muatFormatReminder();
   }
+  if(!senyap){
+    _setUiRefreshing(true, "⏳ Memuat data terbaru dari Spreadsheet...", false);
+  }
   google.script.run.withSuccessHandler(function(j){
     if(j && Array.isArray(j.rows) && j.rows.length > 0){
       terapkanDataPanitia(j, false);
+      var hdr = (j.stats && j.stats.hadir != null) ? j.stats.hadir : 0;
+      var org = (j.stats && j.stats.orang != null) ? j.stats.orang : 0;
+      _setUiRefreshing(false, "✔ Data aktif & tersinkron — " + j.rows.length + " tamu · Hadir: " + hdr + " (" + org + " org)", false);
+    } else {
+      _setUiRefreshing(false, "", false);
     }
     muatStatus();
     muatLog();
   }).withFailureHandler(function(e){
+    _setUiRefreshing(false, "", false);
     if(!window._rows || !window._rows.length){
       terapkanDataPanitia(INITIAL_SEED_DATA, true);
     }
@@ -1969,7 +2083,7 @@ function prosesTempelKonfWa(){
 
 window.addEventListener("DOMContentLoaded", function(){
   muat(false);
-  setInterval(function(){ muat(true); }, 30000);
+  setInterval(function(){ if(window._autoRefreshEnabled && !window._isRefreshingData) muat(true); }, 30000);
 });
 </script>
 </body>
