@@ -124,6 +124,7 @@ var _ACTIVE_CUSTOM_TEMPLATE = "";
 
 var _DAFTAR_NOMOR_CONTOH = {
   "mochammad abian r. a.": true,
+  "letkol arh erfan": true,
   "uji kirim (nomor sendiri)": true,
   "mayor arh rizki prima": true,
   "mayor arh agus": true,
