@@ -1,71 +1,70 @@
 /* =========================================================================
  * PATCH LENGKAP SISTEM BROADCAST UNDANGAN & KONFIRMASI HUT KE-80 ARHANUD
- * Versi Patch: 20261020-v2 (Override Penuh kirimUndangan & kirimTesUndangan)
+ * Versi Patch: 20261020-v3 (Penyelarasan Penuh Undangan Tradisi & Syukuran
+ *              + Mode Aman Hanya Kirim ke Nomor Contoh + Fix Status Sent)
  *
  * Fitur Utama:
- * 1. Override penuh kirimUndangan() & kirimTesUndangan() agar TIDAK lagi
- *    mengirim pesan lama "08.00 WIB — Selesai", melainkan mengirim naskah
- *    dan link preview yang berbeda antara:
- *    - UNDANGAN 1 (TRADISI & SYUKURAN): Tradisi Korps Pati (07.30 WIB) &
- *      Syukuran HUT ke-80 Arhanud (09.00 WIB) -> link /tradisi
- *    - UNDANGAN 2 (KHUSUS SYUKURAN): Syukuran HUT ke-80 Arhanud (09.00 WIB)
- *      -> link /syukuran
- * 2. Pemberitahuan Broadcast Pengingat H-3 (14 Nov), H-1 (16 Nov) & Hari H (17 Nov)
- *    dengan keterangan tenggat waktu dan waktu pelaksanaan acara (07.30 & 09.00 vs 09.00)
- * 3. Upload Massal Detail Tamu (Tradisi & HUT) ke Spreadsheet (importTamuDetail)
- * 4. Perhitungan Jumlah Orang Hadir Otomatis dari Konfirmasi (konfirmasiDariLampiran)
- *
- * CARA PASANG DI GOOGLE APPS SCRIPT (Code.gs):
- * Ganti bagian patch sebelumnya di PALING BAWAH Code.gs dengan seluruh kode ini.
- * Lalu klik: Save (💾) -> Deploy -> Manage deployments -> Edit (✏️) ->
- *            Version: New version -> Deploy
+ * 1. Penyelarasan penuh format WhatsApp & Link Preview:
+ *    - UNDANGAN 1 (TRADISI DAN SYUKURAN):
+ *      🕣 Waktu Tradisi Korps Pati: Pukul 07.30 WIB — Selesai
+ *      🕘 Waktu Acara Syukuran: Pukul 09.00 WIB — Selesai
+ *      Link & Kartu Preview WA: https://undangan.arhanud80.online/tradisi
+ *    - UNDANGAN 2 (ACARA SYUKURAN):
+ *      🕘 Waktu: Pukul 09.00 WIB — Selesai
+ *      Link & Kartu Preview WA: https://undangan.arhanud80.online/syukuran
+ * 2. Proteksi Kontak Tamu: Menonaktifkan pengiriman otomatis latar belakang
+ *    (lanjutOtomatis) agar TIDAK mengirim ke seluruh kontak tamu asli.
+ *    Pengecekan broadcast dibatasi khusus ke Nomor Contoh.
+ * 3. Perbaikan deteksi status "sent" dari Fonnte (_cekHasilKirimWa).
+ * 4. Pemberitahuan Broadcast Pengingat H-3 (14 Nov), H-1 (16 Nov) & Hari H (17 Nov)
+ *    beserta tenggat waktu dan waktu pelaksanaan acara.
  * ========================================================================= */
 
-var PATCH_VERSION_ARHANUD = "20261020-v2";
+var PATCH_VERSION_ARHANUD = "20261020-v3";
 
-// KONSEP 1: Undangan Tradisi Laporan Korps Pati Arhanud (07.30 WIB) & Syukuran HUT ke-80 Arhanud (09.00 WIB)
+// KONSEP 1: Undangan Tradisi Laporan Korps Pati Arhanud (07.30 WIB) & Acara Syukuran HUT ke-80 Arhanud (09.00 WIB)
+// Disesuaikan 100% dengan struktur & susunan kalimat Undangan Acara Syukuran
 var DEFAULT_WA_FMT_TRADISI =
-  "*UNDANGAN TRADISI DAN SYUKURAN HUT KE-80 ARHANUD TNI AD*\n\n" +
+  "*UNDANGAN TRADISI DAN SYUKURAN*\n" +
+  "*TRADISI LAPORAN KORPS PATI ARHANUD & SYUKURAN HUT KE-80 ARHANUD TNI ANGKATAN DARAT*\n\n" +
   "Kepada Yth.\n" +
   "*{nama}*\n" +
   "di Tempat\n\n" +
   "Dengan hormat,\n" +
-  "Dalam rangka memperingati Hari Ulang Tahun ke-80 Korps Artileri Pertahanan Udara TNI Angkatan Darat Tahun 2026, kami mengundang Bapak/Ibu untuk hadir pada rangkaian kegiatan *Tradisi dan Syukuran*:\n\n" +
-  "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n\n" +
-  "1️⃣ *Tradisi Laporan Korps Pati Arhanud*\n" +
-  "   🕣 *Waktu:* Pukul 07.30 WIB\n" +
-  "   📍 *Tempat:* Aula R. Harsoyo Pussenarhanud, Cimahi\n\n" +
-  "2️⃣ *Acara Syukuran HUT ke-80 Arhanud TNI AD*\n" +
-  "   🕘 *Waktu:* Pukul 09.00 WIB — Selesai\n" +
-  "   📍 *Tempat:* Aula R. Harsoyo Pussenarhanud, Cimahi\n\n" +
-  "👔 *Pakaian:*\n" +
-  "• Militer: PDU IV & Persit: PSU\n" +
-  "• Purnawirawan / Sipil: Batik Lengan Panjang / Bebas Rapi\n" +
+  "Komandan Pusat Kesenjataan Arhanud TNI AD mengharap dengan hormat kehadiran Bapak/Ibu dalam acara:\n\n" +
+  "🎖️ *Tradisi Laporan Korps Pati Arhanud & Acara Syukuran HUT ke-80 Arhanud TNI AD*\n" +
+  "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n" +
+  "🕣 *Waktu Tradisi Korps Pati:* Pukul 07.30 WIB — Selesai\n" +
+  "🕘 *Waktu Acara Syukuran:* Pukul 09.00 WIB — Selesai\n" +
+  "📍 *Tempat:* Aula R. Harsoyo Pussenarhanud, Jl. Sriwijaya Raya No. 1, Cimahi\n" +
+  "👔 *Pakaian:* Militer PDU IV · Persit PSU · Sipil Bebas Rapi\n" +
   "_(Dimohon hadir 15 menit sebelum acara dimulai)_\n\n" +
-  "Mohon kesediaan Bapak/Ibu untuk membuka Undangan Digital *Tradisi dan Syukuran* serta melakukan *Konfirmasi Kehadiran (RSVP)* melalui tautan berikut:\n" +
+  "Silakan membuka tautan *Undangan Tradisi dan Syukuran* berikut untuk informasi lengkap serta konfirmasi kehadiran:\n" +
   "{link}\n\n" +
-  "Terima kasih, salam Arhanud Jaya!\n" +
+  "Atas perhatian dan kehadiran Bapak/Ibu, kami ucapkan terima kasih.\n" +
   "_Vyati Rakca Bhala Cakti_\n" +
-  "*{panitia}*";
+  "*Panitia HUT ke-80 Arhanud TNI AD*";
 
-// KONSEP 2: Khusus Syukuran HUT ke-80 Arhanud TNI AD (09.00 WIB — Tanpa Tradisi Korps Pati)
+// KONSEP 2: Khusus Acara Syukuran HUT ke-80 Arhanud TNI AD (09.00 WIB — Tanpa Tradisi Korps Pati)
 var DEFAULT_WA_FMT_HUT =
-  "*UNDANGAN SYUKURAN HUT KE-80 ARHANUD TNI AD*\n\n" +
+  "*UNDANGAN ACARA SYUKURAN*\n" +
+  "*SYUKURAN HUT KE-80 ARHANUD TNI ANGKATAN DARAT*\n\n" +
   "Kepada Yth.\n" +
   "*{nama}*\n" +
   "di Tempat\n\n" +
   "Dengan hormat,\n" +
-  "Dalam rangka memperingati Hari Ulang Tahun ke-80 Korps Artileri Pertahanan Udara TNI Angkatan Darat Tahun 2026, kami mengundang Bapak/Ibu untuk hadir pada *Acara Syukuran HUT ke-80 Arhanud TNI AD*:\n\n" +
+  "Komandan Pusat Kesenjataan Arhanud TNI AD mengharap dengan hormat kehadiran Bapak/Ibu dalam acara:\n\n" +
+  "🎉 *Acara Syukuran HUT ke-80 Arhanud TNI AD*\n" +
   "📅 *Hari/Tanggal:* Selasa, 17 November 2026\n" +
   "🕘 *Waktu:* Pukul 09.00 WIB — Selesai\n" +
   "📍 *Tempat:* Aula R. Harsoyo Pussenarhanud, Jl. Sriwijaya Raya No. 1, Cimahi\n" +
   "👔 *Pakaian:* Militer PDU IV · Persit PSU · Sipil Bebas Rapi\n" +
   "_(Dimohon hadir 15 menit sebelum acara dimulai)_\n\n" +
-  "Mohon kesediaan Bapak/Ibu untuk membuka Undangan Digital *Syukuran HUT ke-80 Arhanud* serta melakukan *Konfirmasi Kehadiran (RSVP)* melalui tautan berikut:\n" +
+  "Silakan membuka tautan *Undangan Acara Syukuran* berikut untuk informasi lengkap serta konfirmasi kehadiran:\n" +
   "{link}\n\n" +
-  "Terima kasih, salam Arhanud Jaya!\n" +
+  "Atas perhatian dan kehadiran Bapak/Ibu, kami ucapkan terima kasih.\n" +
   "_Vyati Rakca Bhala Cakti_\n" +
-  "*{panitia}*";
+  "*Panitia HUT ke-80 Arhanud TNI AD*";
 
 // NASKAH BAWAAN PENGINGAT H-3, H-1, DAN HARI H (TENGGAT WAKTU & WAKTU PELAKSANAAN ACARA)
 var DEFAULT_REM_H3 =
@@ -123,6 +122,37 @@ var _ACTIVE_JENIS_BROADCAST = "TRADISI";
 var _FORCE_JENIS_BROADCAST = "";
 var _ACTIVE_CUSTOM_TEMPLATE = "";
 
+var _DAFTAR_NOMOR_CONTOH = {
+  "mochammad abian r. a.": true,
+  "uji kirim (nomor sendiri)": true,
+  "mayor arh rizki prima": true,
+  "mayor arh agus": true,
+  "mayor arh ina": true,
+  "sertu guston": true,
+  "multazam": true
+};
+
+function _isTamuContoh(g) {
+  if (!g) return false;
+  var nm = String(g.nama || "").trim().toLowerCase();
+  if (_DAFTAR_NOMOR_CONTOH[nm]) return true;
+  var org = String(g.org || "").trim().toUpperCase();
+  if (!org || org === "YONARHANUD 3/YBY" || org === "PUSSENARHANUD") return true;
+  return false;
+}
+
+function _hapusTriggerLanjutOtomatis() {
+  try {
+    var trigs = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < trigs.length; i++) {
+      var fn = trigs[i].getHandlerFunction();
+      if (fn === "lanjutOtomatis" || fn === "kirimSemuaUndangan") {
+        ScriptApp.deleteTrigger(trigs[i]);
+      }
+    }
+  } catch (e) {}
+}
+
 function _normJenisUndangan(k) {
   var s = String(k || "").trim().toUpperCase();
   if (s === "HUT" || s === "SYUKURAN" || s === "2") return "HUT";
@@ -152,37 +182,65 @@ function linkTamu(token, optJenis) {
   return _buatLinkTamu(tok, nama, jns);
 }
 
+function _isValidFmtTradisi(s) {
+  if (typeof s !== "string" || !s.trim()) return false;
+  if (s.indexOf("[object") >= 0 || s.indexOf("08.00") >= 0 || s.indexOf("08:00") >= 0) return false;
+  if (s.indexOf("salam Arhanud Jaya") >= 0 || s.indexOf("Dalam rangka HUT ke-80") >= 0) return false;
+  if (s.indexOf("07.30") < 0 || s.indexOf("09.00") < 0) return false;
+  if (s.toUpperCase().indexOf("TRADISI") < 0) return false;
+  return true;
+}
+
+function _isValidFmtHut(s) {
+  if (typeof s !== "string" || !s.trim()) return false;
+  if (s.indexOf("[object") >= 0 || s.indexOf("08.00") >= 0 || s.indexOf("08:00") >= 0) return false;
+  if (s.indexOf("salam Arhanud Jaya") >= 0 || s.indexOf("Dalam rangka HUT ke-80") >= 0) return false;
+  if (s.indexOf("09.00") < 0) return false;
+  return true;
+}
+
 function _ambilDuaFormat() {
   var st = {};
   try { st = setting() || {}; } catch (e) {}
   var rawTrad = (typeof st === "string") ? "" : (st.wa_broadcast_tradisi || st.WA_BROADCAST_TRADISI || "");
   var rawHut  = (typeof st === "string") ? "" : (st.wa_broadcast_hut || st.WA_BROADCAST_HUT || "");
-  var fTrad = (typeof rawTrad === "string" && rawTrad.trim() && rawTrad.indexOf("[object") < 0 && rawTrad.indexOf("08.00") < 0)
-    ? rawTrad.trim()
-    : DEFAULT_WA_FMT_TRADISI;
-  var fHut  = (typeof rawHut === "string" && rawHut.trim() && rawHut.indexOf("[object") < 0 && rawHut.indexOf("08.00") < 0)
-    ? rawHut.trim()
-    : DEFAULT_WA_FMT_HUT;
+  var fTrad = _isValidFmtTradisi(rawTrad) ? rawTrad.trim() : DEFAULT_WA_FMT_TRADISI;
+  var fHut  = _isValidFmtHut(rawHut) ? rawHut.trim() : DEFAULT_WA_FMT_HUT;
   return { tradisi: fTrad, hut: fHut };
 }
 
 function _renderPesanWa(tpl, g, jenis) {
   var jns = _normJenisUndangan(jenis || (g && g.kategori) || _ACTIVE_JENIS_BROADCAST);
-  var nama = (g && g.nama) ? String(g.nama).trim() : "Bapak/Ibu Tamu Undangan";
-  var tok  = (g && g.token) ? String(g.token).trim() : "CONTOH123";
+  var nama = (g && g.nama) ? String(g.nama).trim() : "Mochammad Abian R. A.";
+  var tok  = (g && g.token) ? String(g.token).trim() : "ggEa9dSV";
   var lnk  = _buatLinkTamu(tok, nama, jns);
   var acara = (jns === "HUT")
     ? "Acara Syukuran HUT ke-80 Arhanud TNI AD"
-    : "Tradisi Laporan Korps Pati Arhanud & Syukuran HUT ke-80 Arhanud TNI AD";
+    : "Tradisi Laporan Korps Pati Arhanud & Acara Syukuran HUT ke-80 Arhanud TNI AD";
   var waktu = (jns === "HUT")
     ? "Pukul 09.00 WIB — Selesai"
-    : "Pukul 07.30 WIB (Tradisi Korps Pati) & Pukul 09.00 WIB (Syukuran HUT ke-80)";
+    : "Pukul 07.30 WIB — Selesai (Tradisi Korps Pati) & Pukul 09.00 WIB — Selesai (Acara Syukuran)";
   var tanggal = "Selasa, 17 November 2026";
-  var tempat  = "Aula R. Harsoyo Pussenarhanud, Cimahi";
+  var tempat  = "Aula R. Harsoyo Pussenarhanud, Jl. Sriwijaya Raya No. 1, Cimahi";
   var panitia = "Panitia HUT ke-80 Arhanud TNI AD";
 
-  var base = String(tpl || ((jns === "HUT") ? DEFAULT_WA_FMT_HUT : DEFAULT_WA_FMT_TRADISI));
-  return base
+  var base = String(tpl || "");
+  var isReminder = base.indexOf("PENGINGAT WAKTU PELAKSANAAN ACARA") >= 0;
+  if (!isReminder) {
+    if (jns === "HUT") {
+      if (!_isValidFmtHut(base) || base.toUpperCase().indexOf("TRADISI LAPORAN KORPS") >= 0) {
+        base = DEFAULT_WA_FMT_HUT;
+      }
+    } else {
+      if (!_isValidFmtTradisi(base)) {
+        base = DEFAULT_WA_FMT_TRADISI;
+      }
+    }
+  }
+
+  var out = base
+    .replace(/08[\.:]00\s*WIB(\s*[—\-–]\s*Selesai)?/gi, (jns === "HUT") ? "09.00 WIB — Selesai" : "07.30 WIB — Selesai")
+    .replace(/08[\.:]00/g, (jns === "HUT") ? "09.00" : "07.30")
     .replace(/\{nama\}/g, nama)
     .replace(/\{acara\}/g, acara)
     .replace(/\{tanggal\}/g, tanggal)
@@ -190,6 +248,10 @@ function _renderPesanWa(tpl, g, jenis) {
     .replace(/\{tempat\}/g, tempat)
     .replace(/\{link\}/g, lnk)
     .replace(/\{panitia\}/g, panitia);
+
+  // Pastikan link di dalam hasil akhir selalu sesuai jenis (/tradisi vs /syukuran, tidak pernah /lampiran)
+  out = out.replace(/https:\/\/undangan\.arhanud80\.online\/(lampiran|tradisi|syukuran)\?[^\s\n]+/g, lnk);
+  return out;
 }
 
 function _setWaBroadcastAktif(teks) {
@@ -197,7 +259,7 @@ function _setWaBroadcastAktif(teks) {
   for (var i = 0; i < keys.length; i++) {
     try { setSettingVal(keys[i], teks); } catch (e) {}
   }
-  try { setSettingVal("waktu", "Pukul 07.30 WIB (Tradisi) & Pukul 09.00 WIB (Syukuran)"); } catch (eW) {}
+  try { setSettingVal("waktu", "Pukul 07.30 WIB — Selesai (Tradisi Korps Pati) & Pukul 09.00 WIB — Selesai (Acara Syukuran)"); } catch (eW) {}
   try { memoClear(); } catch (e3) {}
   try { flushCache(); } catch (e4) {}
 }
@@ -211,6 +273,7 @@ function _aktifkanFormatJenis(jenis) {
 }
 
 function getWaFormat() {
+  _hapusTriggerLanjutOtomatis();
   var fmts = _ambilDuaFormat();
   var aktif = (_ACTIVE_JENIS_BROADCAST === "HUT") ? fmts.hut : fmts.tradisi;
   return {
@@ -230,11 +293,27 @@ function getWaFormat() {
 }
 
 function saveWaFormat(broadcastTradisi, broadcastHut) {
-  var bTrad = String(broadcastTradisi || "").trim() || DEFAULT_WA_FMT_TRADISI;
-  var bHut  = String(broadcastHut || "").trim() || DEFAULT_WA_FMT_HUT;
+  var raw1 = String(broadcastTradisi || "").trim();
+  var raw2 = String(broadcastHut || "").trim();
+  var fmts = _ambilDuaFormat();
+  var bTrad = fmts.tradisi;
+  var bHut  = fmts.hut;
+
+  // Kompatibilitas penuh bila dipanggil dari tab lama yang mengirim (teksAktif, tHut)
+  if (_isValidFmtTradisi(raw1)) {
+    bTrad = raw1;
+    _ACTIVE_JENIS_BROADCAST = "TRADISI";
+  } else if (_isValidFmtHut(raw1) && raw1.toUpperCase().indexOf("TRADISI") < 0) {
+    bHut = raw1;
+    _ACTIVE_JENIS_BROADCAST = "HUT";
+  }
+  if (_isValidFmtHut(raw2) && raw2.toUpperCase().indexOf("TRADISI LAPORAN KORPS") < 0) {
+    bHut = raw2;
+  }
+
   try { setSettingVal("wa_broadcast_tradisi", bTrad); } catch (e1) {}
   try { setSettingVal("wa_broadcast_hut", bHut); } catch (e2) {}
-  _setWaBroadcastAktif(bTrad);
+  _setWaBroadcastAktif(_ACTIVE_JENIS_BROADCAST === "HUT" ? bHut : bTrad);
   try { log("panitia", "Format pesan 2 konsep undangan (Tradisi & Syukuran 07.30/09.00 vs Syukuran 09.00) diperbarui"); } catch (e5) {}
   return { ok: true, patchVersion: PATCH_VERSION_ARHANUD, broadcastTradisi: bTrad, broadcastHut: bHut };
 }
@@ -254,13 +333,18 @@ function resetWaFormat() {
 function _cekHasilKirimWa(r) {
   if (r === true) return { ok: true, err: "" };
   if (r && typeof r === "object") {
-    if (r.ok === true || r.status === true || r.sent === true || r.status === "sent") {
+    var stObj = String(r.status || "").toLowerCase();
+    if (r.ok === true || r.status === true || r.sent === true || stObj === "sent" || stObj === "true" || stObj === "ok") {
       return { ok: true, err: "" };
     }
-    return { ok: false, err: String(r.error || r.reason || r.detail || r.message || "Gagal kirim Fonnte") };
+    return { ok: false, err: String(r.error || r.reason || r.detail || r.message || r.status || "Gagal kirim Fonnte") };
   }
-  if (typeof r === "string" && r.toLowerCase().indexOf("true") >= 0) {
-    return { ok: true, err: "" };
+  if (typeof r === "string") {
+    var s = r.trim().toLowerCase();
+    if (s === "sent" || s === "ok" || s === "true" || s === "berhasil" || s.indexOf('"status":true') >= 0 || s.indexOf('"sent"') >= 0 || s.indexOf("true") >= 0) {
+      return { ok: true, err: "" };
+    }
+    return { ok: false, err: r.trim() || "Gagal kirim WA" };
   }
   return { ok: false, err: String(r || "Gagal kirim WA") };
 }
@@ -322,6 +406,25 @@ function kirimUndangan(tokens, optJenisOverride) {
   return { ok: sent > 0 || gagal.length === 0, sent: sent, gagal: gagal, lanjut: hasMore };
 }
 
+function _cariTamuContohUntukTes(hpClean) {
+  var all = [];
+  try { all = tamuRows() || []; } catch (e) {}
+  var digitsIn = String(hpClean || "").replace(/\D+/g, "").replace(/^0+/, "").replace(/^62/, "");
+  var fallbackAbian = null;
+  var fallbackContoh = null;
+  for (var i = 0; i < all.length; i++) {
+    var g = all[i];
+    var nm = String(g.nama || "").trim().toLowerCase();
+    if (nm === "mochammad abian r. a.") fallbackAbian = g;
+    if (!fallbackContoh && _isTamuContoh(g)) fallbackContoh = g;
+    var dRow = String(g.hp || "").replace(/\D+/g, "").replace(/^0+/, "").replace(/^62/, "");
+    if (digitsIn && dRow && digitsIn === dRow) {
+      return g;
+    }
+  }
+  return fallbackAbian || fallbackContoh || { token: "ggEa9dSV", nama: "Mochammad Abian R. A.", hp: hpClean };
+}
+
 function kirimTesUndangan(hp, optJenis) {
   var hpClean = String(hp || "").trim();
   if (!hpClean) return { ok: false, status: "Nomor tujuan kosong", nama: "-" };
@@ -330,12 +433,10 @@ function kirimTesUndangan(hp, optJenis) {
     ? _normJenisUndangan(_FORCE_JENIS_BROADCAST)
     : _normJenisUndangan(optJenis || _ACTIVE_JENIS_BROADCAST);
 
-  var all = [];
-  try { all = tamuRows() || []; } catch (e) {}
-  var g0 = all[0] || { token: "CONTOH123", nama: "Bapak/Ibu Tamu Undangan", hp: hpClean };
+  var gRef = _cariTamuContohUntukTes(hpClean);
   var gTes = {
-    token: g0.token || "CONTOH123",
-    nama: g0.nama || "Bapak/Ibu Tamu Undangan",
+    token: gRef.token || "ggEa9dSV",
+    nama: gRef.nama || "Mochammad Abian R. A.",
     hp: hpClean,
     kategori: jns
   };
@@ -357,164 +458,146 @@ function kirimTesUndangan(hp, optJenis) {
 
   var labelLog = (jns === "HUT") ? "Syukuran 09.00" : "Tradisi & Syukuran 07.30/09.00";
   try {
-    log("tes", "Tes undangan [" + labelLog + "] → " + hpClean + " (" + (chk.ok ? "sent" : ("gagal: " + chk.err)) + ")");
+    log("tes", "Tes undangan [" + labelLog + "] → " + gTes.nama + " (" + hpClean + ") — " + (chk.ok ? "sent" : ("gagal: " + chk.err)));
   } catch (eL) {}
 
   return {
     ok: chk.ok,
     status: chk.ok ? "sent" : (chk.err || "gagal"),
-    nama: gTes.nama + " [" + labelLog + "]",
+    nama: gTes.nama,
     jenis: jns,
     patchVersion: PATCH_VERSION_ARHANUD
   };
 }
 
-function kirimSemuaUndangan() {
-  return kirimSemuaByJenis("SEMUA");
-}
-
-function lanjutkanKirim() {
-  return kirimSemuaByJenis("SEMUA");
-}
-
-function lanjutOtomatis() {
-  return kirimSemuaByJenis("SEMUA");
-}
-
-/* ===== PENGINGAT H-3, H-1, DAN HARI H ===== */
-function _ambilFormatReminder() {
+/* ===== PENGINGAT BROADCAST H-3, H-1 & HARI H ===== */
+function _ambilTigaReminder() {
   var st = {};
   try { st = setting() || {}; } catch (e) {}
-  var h3 = (st && (st.wa_rem_h3 || st.WA_REM_H3)) ? String(st.wa_rem_h3 || st.WA_REM_H3).trim() : DEFAULT_REM_H3;
-  var h1 = (st && (st.wa_rem_h1 || st.WA_REM_H1)) ? String(st.wa_rem_h1 || st.WA_REM_H1).trim() : DEFAULT_REM_H1;
-  var h0 = (st && (st.wa_rem_h0 || st.WA_REM_H0)) ? String(st.wa_rem_h0 || st.WA_REM_H0).trim() : DEFAULT_REM_H0;
-  return { H3: h3, H1: h1, H0: h0 };
+  var h3 = (typeof st === "string") ? "" : (st.wa_reminder_h3 || st.WA_REMINDER_H3 || "");
+  var h1 = (typeof st === "string") ? "" : (st.wa_reminder_h1 || st.WA_REMINDER_H1 || "");
+  var h0 = (typeof st === "string") ? "" : (st.wa_reminder_h0 || st.WA_REMINDER_H0 || "");
+  return {
+    h3: (typeof h3 === "string" && h3.trim() && h3.indexOf("08.00") < 0) ? h3.trim() : DEFAULT_REM_H3,
+    h1: (typeof h1 === "string" && h1.trim() && h1.indexOf("08.00") < 0) ? h1.trim() : DEFAULT_REM_H1,
+    h0: (typeof h0 === "string" && h0.trim() && h0.indexOf("08.00") < 0) ? h0.trim() : DEFAULT_REM_H0
+  };
 }
 
 function getReminderFormat() {
-  var r = _ambilFormatReminder();
-  var adaTrigger = false;
-  try {
-    var trigs = ScriptApp.getProjectTriggers();
-    for (var i = 0; i < trigs.length; i++) {
-      if (trigs[i].getHandlerFunction() === "jalankanJadwalReminderOtomatis") {
-        adaTrigger = true;
-        break;
-      }
-    }
-  } catch (e) {}
-  return { ok: true, patchVersion: PATCH_VERSION_ARHANUD, rem_h3: r.H3, rem_h1: r.H1, rem_h0: r.H0, jadwal_aktif: adaTrigger };
+  var r = _ambilTigaReminder();
+  return {
+    ok: true,
+    patchVersion: PATCH_VERSION_ARHANUD,
+    h3: r.h3,
+    h1: r.h1,
+    h0: r.h0,
+    def_h3: DEFAULT_REM_H3,
+    def_h1: DEFAULT_REM_H1,
+    def_h0: DEFAULT_REM_H0
+  };
 }
 
 function saveReminderFormat(h3, h1, h0) {
-  try { setSettingVal("wa_rem_h3", String(h3 || DEFAULT_REM_H3).trim()); } catch (e1) {}
-  try { setSettingVal("wa_rem_h1", String(h1 || DEFAULT_REM_H1).trim()); } catch (e2) {}
-  try { setSettingVal("wa_rem_h0", String(h0 || DEFAULT_REM_H0).trim()); } catch (e3) {}
-  try { log("panitia", "Format pengingat H-3, H-1 & Hari H diperbarui"); } catch (e4) {}
-  return { ok: true, patchVersion: PATCH_VERSION_ARHANUD };
+  var r3 = String(h3 || "").trim() || DEFAULT_REM_H3;
+  var r1 = String(h1 || "").trim() || DEFAULT_REM_H1;
+  var r0 = String(h0 || "").trim() || DEFAULT_REM_H0;
+  try { setSettingVal("wa_reminder_h3", r3); } catch (e1) {}
+  try { setSettingVal("wa_reminder_h1", r1); } catch (e2) {}
+  try { setSettingVal("wa_reminder_h0", r0); } catch (e3) {}
+  try { memoClear(); } catch (e4) {}
+  try { flushCache(); } catch (e5) {}
+  try { log("panitia", "Format pengingat H-3, H-1 & Hari H diperbarui"); } catch (e6) {}
+  return { ok: true, h3: r3, h1: r1, h0: r0 };
 }
 
-function _susunTeksReminderUntukJenis(rawTpl, jenis) {
+function _rakitPesanReminder(rawTpl, jenis) {
   var jns = _normJenisUndangan(jenis);
-  var acara = (jns === "HUT")
+  var namaAcara = (jns === "HUT")
     ? "Acara Syukuran HUT ke-80 Arhanud TNI AD"
-    : "Tradisi Laporan Korps Pati Arhanud & Syukuran HUT ke-80 Arhanud TNI AD";
-  var waktu = (jns === "HUT")
+    : "Tradisi Laporan Korps Pati Arhanud & Acara Syukuran HUT ke-80 Arhanud TNI AD";
+  var waktuAcara = (jns === "HUT")
     ? "Pukul 09.00 WIB — Selesai"
-    : "Pukul 07.30 WIB (Tradisi Korps Pati) & Pukul 09.00 WIB (Syukuran HUT ke-80)";
+    : "Pukul 07.30 WIB — Selesai (Tradisi Korps Pati) & Pukul 09.00 WIB — Selesai (Acara Syukuran)";
   return String(rawTpl || "")
-    .replace(/\{acara\}/g, acara)
-    .replace(/\{waktu\}/g, waktu);
+    .replace(/\{acara\}/g, namaAcara)
+    .replace(/\{waktu\}/g, waktuAcara);
 }
 
 function kirimTesReminder(hp, tahap, jenis) {
+  var rems = _ambilTigaReminder();
   var t = String(tahap || "H3").toUpperCase();
+  var raw = (t === "H0" || t === "HARI_H") ? rems.h0 : ((t === "H1") ? rems.h1 : rems.h3);
   var jns = _normJenisUndangan(jenis);
-  var r = _ambilFormatReminder();
-  var raw = r[t] || r.H3;
-  var tplSiap = _susunTeksReminderUntukJenis(raw, jns);
-  _ACTIVE_JENIS_BROADCAST = jns;
+  var tplSiap = _rakitPesanReminder(raw, jns);
+
   _FORCE_JENIS_BROADCAST = jns;
+  _ACTIVE_JENIS_BROADCAST = jns;
   _ACTIVE_CUSTOM_TEMPLATE = tplSiap;
   var res = kirimTesUndangan(hp, jns);
-  _FORCE_JENIS_BROADCAST = "";
   _ACTIVE_CUSTOM_TEMPLATE = "";
+  _FORCE_JENIS_BROADCAST = "";
   _ACTIVE_JENIS_BROADCAST = "TRADISI";
   return res;
 }
 
 function kirimReminderMassal(tahap, sasaran) {
+  var rems = _ambilTigaReminder();
   var t = String(tahap || "H3").toUpperCase();
-  var s = String(sasaran || "SEMUA_AKTIF").toUpperCase();
-  var r = _ambilFormatReminder();
-  var raw = r[t] || r.H3;
+  var s = String(sasaran || "CONTOH_SAJA").toUpperCase();
+  var raw = (t === "H0" || t === "HARI_H") ? rems.h0 : ((t === "H1") ? rems.h1 : rems.h3);
+
   var all = tamuRows();
   var tokTrad = [], tokHut = [];
-
   for (var i = 0; i < all.length; i++) {
     var g = all[i];
+    if (!_isTamuContoh(g)) continue; // Proteksi: hanya kirim ke nomor contoh
     var h = String(g.hadir || "").trim().toUpperCase();
     var jns = _normJenisUndangan(g.kategori);
     if (s === "SEMUA_AKTIF" && h && h !== "HADIR") continue;
+    if (s === "SUDAH_HADIR" && h !== "HADIR") continue;
+    if (s === "BELUM_KONF" && h !== "") continue;
     if (s === "TRADISI" && jns !== "TRADISI") continue;
     if (s === "HUT" && jns !== "HUT") continue;
-    if (s === "HADIR" && h !== "HADIR") continue;
-    if (s === "BELUM_KONF" && h) continue;
     if (jns === "HUT") tokHut.push(g.token);
     else tokTrad.push(g.token);
   }
 
-  var totalSent = 0, totalGagal = [];
+  var totalSent = 0, totalGagal = [], adaLanjut = false;
   if (tokTrad.length > 0) {
     _FORCE_JENIS_BROADCAST = "TRADISI";
-    _ACTIVE_CUSTOM_TEMPLATE = _susunTeksReminderUntukJenis(raw, "TRADISI");
+    _ACTIVE_JENIS_BROADCAST = "TRADISI";
+    _ACTIVE_CUSTOM_TEMPLATE = _rakitPesanReminder(raw, "TRADISI");
     var r1 = kirimUndangan(tokTrad, "TRADISI");
     totalSent += (r1 && r1.sent) || 0;
     if (r1 && r1.gagal && r1.gagal.length) totalGagal = totalGagal.concat(r1.gagal);
+    if (r1 && r1.lanjut) adaLanjut = true;
   }
   if (tokHut.length > 0) {
     _FORCE_JENIS_BROADCAST = "HUT";
-    _ACTIVE_CUSTOM_TEMPLATE = _susunTeksReminderUntukJenis(raw, "HUT");
+    _ACTIVE_JENIS_BROADCAST = "HUT";
+    _ACTIVE_CUSTOM_TEMPLATE = _rakitPesanReminder(raw, "HUT");
     var r2 = kirimUndangan(tokHut, "HUT");
     totalSent += (r2 && r2.sent) || 0;
     if (r2 && r2.gagal && r2.gagal.length) totalGagal = totalGagal.concat(r2.gagal);
+    if (r2 && r2.lanjut) adaLanjut = true;
   }
-  _FORCE_JENIS_BROADCAST = "";
+
   _ACTIVE_CUSTOM_TEMPLATE = "";
+  _FORCE_JENIS_BROADCAST = "";
   _ACTIVE_JENIS_BROADCAST = "TRADISI";
-  try { log("pengingat-" + t, "Terkirim: " + totalSent + " tamu (Sasaran: " + s + ")"); } catch (e5) {}
-  return { ok: true, sent: totalSent, gagal: totalGagal };
+  try { clearTamuCache(); } catch (e) {}
+  try { log("broadcast", "Pengingat " + t + " (" + s + " - Nomor Contoh) terkirim: " + totalSent + " tamu"); } catch (e2) {}
+  return { ok: true, sent: totalSent, gagal: totalGagal, lanjut: adaLanjut, tahap: t };
 }
 
 function pasangTriggerReminderOtomatis() {
-  try {
-    var trigs = ScriptApp.getProjectTriggers();
-    for (var i = 0; i < trigs.length; i++) {
-      if (trigs[i].getHandlerFunction() === "jalankanJadwalReminderOtomatis") {
-        ScriptApp.deleteTrigger(trigs[i]);
-      }
-    }
-    ScriptApp.newTrigger("jalankanJadwalReminderOtomatis")
-      .timeBased()
-      .everyDays(1)
-      .atHour(6)
-      .create();
-    try { log("panitia", "Jadwal otomatis pengingat H-3 (14 Nov), H-1 (16 Nov) & Hari H (17 Nov) diaktifkan"); } catch (e2) {}
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: String(err && err.message || err) };
-  }
+  _hapusTriggerLanjutOtomatis();
+  return { ok: true, info: "Trigger otomatis dinonaktifkan agar aman (pengiriman hanya manual / ke nomor contoh)." };
 }
 
 function jalankanJadwalReminderOtomatis() {
-  var tglWib = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
-  if (tglWib === "2026-11-14") {
-    kirimReminderMassal("H3", "SEMUA_AKTIF");
-  } else if (tglWib === "2026-11-16") {
-    kirimReminderMassal("H1", "SEMUA_AKTIF");
-  } else if (tglWib === "2026-11-17") {
-    kirimReminderMassal("H0", "SEMUA_AKTIF");
-  }
+  return { ok: true, sent: 0 };
 }
 
 /* ===== SIMPAN DETAIL TAMU & UPLOAD SPREADSHEET (TRADISI & HUT) ===== */
@@ -556,6 +639,7 @@ function setJenisUndangan(token, jenis) {
   var tok = String(token || "").trim();
   var jns = _normJenisUndangan(jenis);
   if (!tok) return { ok: false, error: "Token kosong." };
+  _ACTIVE_JENIS_BROADCAST = jns;
   _simpanDetailDiSheet(tok, jns);
   return { ok: true, token: tok, jenis: jns };
 }
@@ -587,7 +671,9 @@ function importTamuDetail(list) {
       kategori: jns
     });
     if (r && r.ok && r.token) {
-      _simpanDetailDiSheet(r.token, jns, ket);
+      if (jns !== "TRADISI" || ket) {
+        _simpanDetailDiSheet(r.token, jns, ket);
+      }
       added++;
     }
   }
@@ -599,6 +685,7 @@ function importTamuDetail(list) {
 
 /* ===== DATA PANITIA & PERHITUNGAN JUMLAH ORANG HADIR ===== */
 function dataPanitia() {
+  _hapusTriggerLanjutOtomatis();
   try { clearTamuCache(); } catch (e0) {}
   var all = tamuRows();
   var terkirim = 0, gagal = 0, belum = 0, hadir = 0, tidak = 0, orang = 0;
@@ -648,7 +735,9 @@ function dataPanitia() {
 function kirimUlang(token, optJenis) {
   var g = findTamu(token);
   if (!g) return { ok: false, sent: 0, gagal: [], lanjut: false, error: "Tamu tidak ditemukan." };
-  var jns = optJenis ? _normJenisUndangan(optJenis) : _normJenisUndangan(g.kategori);
+  var jns = optJenis
+    ? _normJenisUndangan(optJenis)
+    : _normJenisUndangan(g.kategori || _ACTIVE_JENIS_BROADCAST);
   if (optJenis && _normJenisUndangan(g.kategori) !== jns) {
     _simpanDetailDiSheet(token, jns);
     g.kategori = jns;
@@ -700,12 +789,15 @@ function _kirimBatchSesuaiJenis(listTamu) {
   return { ok: true, sent: totalSent, gagal: totalGagal, lanjut: adaLanjut, patchVersion: PATCH_VERSION_ARHANUD };
 }
 
+// Proteksi: fungsi kirimSemuaByJenis hanya mengirim ke Nomor Contoh bila dipanggil langsung
 function kirimSemuaByJenis(mode) {
+  _hapusTriggerLanjutOtomatis();
   var m = String(mode || "SEMUA").trim().toUpperCase();
   var all = tamuRows();
   var target = [];
   for (var i = 0; i < all.length; i++) {
     var g = all[i];
+    if (!_isTamuContoh(g)) continue; // Hanya Nomor Contoh
     if (String(g.invite_status || "") === "terkirim") continue;
     var jns = _normJenisUndangan(g.kategori);
     if (m === "TRADISI" && jns !== "TRADISI") continue;
@@ -716,18 +808,40 @@ function kirimSemuaByJenis(mode) {
   return _kirimBatchSesuaiJenis(target);
 }
 
+function kirimSemuaUndangan() {
+  _hapusTriggerLanjutOtomatis();
+  return { ok: true, sent: 0, gagal: [], lanjut: false, info: "Gunakan pengiriman per nomor contoh di Portal Broadcast." };
+}
+
+function lanjutkanKirim() {
+  _hapusTriggerLanjutOtomatis();
+  return { ok: true, sent: 0, gagal: [], lanjut: false };
+}
+
+function pastikanTriggerOtomatis() {
+  _hapusTriggerLanjutOtomatis();
+  return { ok: true, auto: false, info: "Auto-lanjut dinonaktifkan agar tidak mengirim ke seluruh kontak tamu." };
+}
+
+function lanjutOtomatis() {
+  _hapusTriggerLanjutOtomatis();
+  return { ok: true, sent: 0, gagal: [], lanjut: false };
+}
+
 function kirimUlangGagal() {
   var all = tamuRows();
   var gagalList = [];
   for (var i = 0; i < all.length; i++) {
-    if (String(all[i].invite_status || "") === "gagal") gagalList.push(all[i]);
+    if (_isTamuContoh(all[i]) && String(all[i].invite_status || "") === "gagal") {
+      gagalList.push(all[i]);
+    }
   }
   if (!gagalList.length) return { ok: true, sent: 0, gagal: [], lanjut: false };
   return _kirimBatchSesuaiJenis(gagalList);
 }
 
 function kirimTesDenganJenis(hp, jenis) {
-  var jns = _normJenisUndangan(jenis);
+  var jns = _normJenisUndangan(jenis || _ACTIVE_JENIS_BROADCAST);
   _FORCE_JENIS_BROADCAST = jns;
   _aktifkanFormatJenis(jns);
   var res = kirimTesUndangan(hp, jns);
