@@ -821,12 +821,23 @@ function lanjutkanKirim() {
 
 function pastikanTriggerOtomatis() {
   _hapusTriggerLanjutOtomatis();
-  return { ok: true, auto: false, info: "Auto-lanjut dinonaktifkan agar tidak mengirim ke seluruh kontak tamu." };
+  return { ok: true, auto: false, info: "Broadcast otomatis telah dihentikan sepenuhnya (pengiriman hanya manual)." };
 }
 
 function lanjutOtomatis() {
   _hapusTriggerLanjutOtomatis();
   return { ok: true, sent: 0, gagal: [], lanjut: false };
+}
+
+function statusBroadcast() {
+  _hapusTriggerLanjutOtomatis();
+  var all = [];
+  try { all = tamuRows() || []; } catch (e) {}
+  var belum = 0;
+  for (var i = 0; i < all.length; i++) {
+    if (String(all[i].invite_status || "") !== "terkirim") belum++;
+  }
+  return { ok: true, belum: belum, antrian: 0, auto: false };
 }
 
 function kirimUlangGagal() {
