@@ -350,61 +350,108 @@ function _cekHasilKirimWa(r) {
   return { ok: false, err: String(r || "Gagal kirim WA") };
 }
 
+function _normHpDigits(hp) {
+  return String(hp || "").replace(/\D+/g, "").replace(/^0+/, "").replace(/^62/, "");
+}
+
 function kirimUndangan(tokens, optJenisOverride) {
   if (!Array.isArray(tokens)) tokens = tokens ? [tokens] : [];
   if (!tokens.length) return { ok: true, sent: 0, gagal: [], lanjut: false };
 
-  var fmts = _ambilDuaFormat();
-  var batch = tokens.slice(0, 20);
-  var hasMore = tokens.length > 20;
-  var sent = 0;
-  var gagal = [];
+  // PROTEKSI ANTI-DOUBLE SEND (LockService + Deduplikasi Nomor HP + Cooldown Cache 25 Detik)
+  var lock = null;
+  try {
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(8000)) {
+      return { ok: false, sent: 0, gagal: [], lanjut: false, error: "Pengiriman lain sedang berjalan, mencegah double send." };
+    }
+  } catch (eLock) {}
 
-  for (var i = 0; i < batch.length; i++) {
-    var tok = String(batch[i] || "").trim();
-    if (!tok) continue;
-    var g = null;
-    try { g = findTamu(tok); } catch (e) {}
-    if (!g) continue;
+  var cache = null;
+  try { cache = CacheService.getScriptCache(); } catch (eCache) {}
 
-    var hpRaw = String(g.hp || "").trim();
-    if (!hpRaw || hpRaw.toLowerCase().indexOf("belum") >= 0 || hpRaw === "-") {
-      continue;
+  try {
+    var fmts = _ambilDuaFormat();
+    var batch = tokens.slice(0, 20);
+    var hasMore = tokens.length > 20;
+    var sent = 0;
+    var gagal = [];
+    var seenTokens = {};
+    var seenHp = {};
+
+    for (var i = 0; i < batch.length; i++) {
+      var tok = String(batch[i] || "").trim();
+      if (!tok || seenTokens[tok]) continue;
+      seenTokens[tok] = true;
+
+      var g = null;
+      try { g = findTamu(tok); } catch (e) {}
+      if (!g) continue;
+
+      var hpRaw = String(g.hp || "").trim();
+      var hpDigits = _normHpDigits(hpRaw);
+      if (!hpRaw || hpRaw.toLowerCase().indexOf("belum") >= 0 || hpRaw === "-" || hpDigits.length < 8) {
+        continue;
+      }
+
+      // Cegah pengiriman double ke nomor HP yang sama dalam batch atau dalam 25 detik terakhir
+      if (seenHp[hpDigits]) {
+        continue;
+      }
+      seenHp[hpDigits] = true;
+
+      var cacheKey = "arhanud_wa_lock_" + hpDigits + "_" + (_ACTIVE_CUSTOM_TEMPLATE ? "rem" : "und");
+      if (cache) {
+        try {
+          if (cache.get(cacheKey)) {
+            // Nomor ini baru saja dikirim kurang dari 25 detik lalu (mencegah double request / retry)
+            sent++;
+            continue;
+          }
+        } catch (eCg) {}
+      }
+
+      var jns = _FORCE_JENIS_BROADCAST
+        ? _normJenisUndangan(_FORCE_JENIS_BROADCAST)
+        : _normJenisUndangan(optJenisOverride || g.kategori || _ACTIVE_JENIS_BROADCAST);
+
+      var tpl = _ACTIVE_CUSTOM_TEMPLATE
+        ? _ACTIVE_CUSTOM_TEMPLATE
+        : ((jns === "HUT") ? fmts.hut : fmts.tradisi);
+
+      var pesan = _renderPesanWa(tpl, g, jns);
+      var r = null;
+      var chk = { ok: false, err: "" };
+      try {
+        r = kirimWa(hpRaw, pesan);
+        chk = _cekHasilKirimWa(r);
+      } catch (errWa) {
+        chk = { ok: false, err: String((errWa && errWa.message) || errWa) };
+      }
+
+      var labelLog = (jns === "HUT") ? "Syukuran 09.00" : "Tradisi & Syukuran 07.30/09.00";
+      if (chk.ok) {
+        sent++;
+        if (cache) {
+          try { cache.put(cacheKey, "1", 25); } catch (eCp) {}
+        }
+        try { updateTamu(g.token, { invite_status: "terkirim", invite_waktu: nowStr(), kategori: jns }); } catch (eU) {}
+        try { log("broadcast", "Terkirim [" + labelLog + "] → " + g.nama + " (" + g.hp + ")"); } catch (eL) {}
+      } else {
+        gagal.push(g.nama);
+        try { updateTamu(g.token, { invite_status: "gagal", kategori: jns }); } catch (eU2) {}
+        try { log("broadcast", "Gagal [" + labelLog + "] → " + g.nama + " (" + g.hp + ")" + (chk.err ? " — " + chk.err : "")); } catch (eL2) {}
+      }
     }
 
-    var jns = _FORCE_JENIS_BROADCAST
-      ? _normJenisUndangan(_FORCE_JENIS_BROADCAST)
-      : _normJenisUndangan(optJenisOverride || g.kategori || _ACTIVE_JENIS_BROADCAST);
-
-    var tpl = _ACTIVE_CUSTOM_TEMPLATE
-      ? _ACTIVE_CUSTOM_TEMPLATE
-      : ((jns === "HUT") ? fmts.hut : fmts.tradisi);
-
-    var pesan = _renderPesanWa(tpl, g, jns);
-    var r = null;
-    var chk = { ok: false, err: "" };
-    try {
-      r = kirimWa(hpRaw, pesan);
-      chk = _cekHasilKirimWa(r);
-    } catch (errWa) {
-      chk = { ok: false, err: String((errWa && errWa.message) || errWa) };
-    }
-
-    var labelLog = (jns === "HUT") ? "Syukuran 09.00" : "Tradisi & Syukuran 07.30/09.00";
-    if (chk.ok) {
-      sent++;
-      try { updateTamu(g.token, { invite_status: "terkirim", invite_waktu: nowStr(), kategori: jns }); } catch (eU) {}
-      try { log("broadcast", "Terkirim [" + labelLog + "] → " + g.nama + " (" + g.hp + ")"); } catch (eL) {}
-    } else {
-      gagal.push(g.nama);
-      try { updateTamu(g.token, { invite_status: "gagal", kategori: jns }); } catch (eU2) {}
-      try { log("broadcast", "Gagal [" + labelLog + "] → " + g.nama + " (" + g.hp + ")" + (chk.err ? " — " + chk.err : "")); } catch (eL2) {}
+    try { clearTamuCache(); } catch (eC1) {}
+    try { flushCache(); } catch (eC2) {}
+    return { ok: sent > 0 || gagal.length === 0, sent: sent, gagal: gagal, lanjut: hasMore };
+  } finally {
+    if (lock) {
+      try { lock.releaseLock(); } catch (eRel) {}
     }
   }
-
-  try { clearTamuCache(); } catch (eC1) {}
-  try { flushCache(); } catch (eC2) {}
-  return { ok: sent > 0 || gagal.length === 0, sent: sent, gagal: gagal, lanjut: hasMore };
 }
 
 function _cariTamuContohUntukTes(hpClean) {
@@ -430,6 +477,16 @@ function kirimTesUndangan(hp, optJenis) {
   var hpClean = String(hp || "").trim();
   if (!hpClean) return { ok: false, status: "Nomor tujuan kosong", nama: "-" };
 
+  var hpDigits = _normHpDigits(hpClean);
+  var cache = null;
+  var cacheKey = "arhanud_tes_lock_" + hpDigits + "_" + String(optJenis || "TRADISI");
+  try {
+    cache = CacheService.getScriptCache();
+    if (cache && cache.get(cacheKey)) {
+      return { ok: true, status: "sent", nama: "Mochammad Abian R. A.", skipped_double: true };
+    }
+  } catch (eCg) {}
+
   var jns = _FORCE_JENIS_BROADCAST
     ? _normJenisUndangan(_FORCE_JENIS_BROADCAST)
     : _normJenisUndangan(optJenis || _ACTIVE_JENIS_BROADCAST);
@@ -453,6 +510,9 @@ function kirimTesUndangan(hp, optJenis) {
   try {
     r = kirimWa(hpClean, pesan);
     chk = _cekHasilKirimWa(r);
+    if (chk.ok && cache) {
+      try { cache.put(cacheKey, "1", 15); } catch (eCp) {}
+    }
   } catch (errWa) {
     chk = { ok: false, err: String((errWa && errWa.message) || errWa) };
   }

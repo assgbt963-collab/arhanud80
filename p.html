@@ -172,15 +172,38 @@ function rpcJsonp(fn,args,ok,err){
 }
 function rpcFetch(fn,args,ok,err){
   if(!window.fetch){ rpcJsonp(fn,args,ok,err); return; }
+  // PROTEKSI ANTI-DOUBLE SEND: Fungsi pengiriman WA / mutasi data TIDAK BOLEH fallback ke rpcJsonp bila fetch gagal/timeout
+  // karena fallback otomatis akan mengeksekusi permintaan yang sama 2 kali di server!
+  var isMutating = /^(kirim|tambah|import|hapus|set|save|reset|pasang|lanjut|konfirmasi)/i.test(String(fn||""));
+  var timeoutMs = isMutating ? 45000 : 20000;
   var ctrl = ("AbortController" in window) ? new AbortController() : null;
-  var tm = ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(e){} }, 20000) : null;
+  var tm = ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(e){} }, timeoutMs) : null;
+  var done = false;
   var fin = function(){ if(tm) clearTimeout(tm); };
   try{
-    fetch(RPC_URL + "?" + rpcQuery(fn,args,true), {method:"GET", credentials:"omit", cache:"no-store"})
+    fetch(RPC_URL + "?" + rpcQuery(fn,args,true), {method:"GET", credentials:"omit", cache:"no-store", signal: ctrl ? ctrl.signal : undefined})
       .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
-      .then(function(j){ fin(); ok(j); })
-      .catch(function(){ fin(); rpcJsonp(fn,args,ok,err); });
-  }catch(e){ fin(); rpcJsonp(fn,args,ok,err); }
+      .then(function(j){ if(done)return; done=true; fin(); ok(j); })
+      .catch(function(e){
+        if(done) return;
+        done = true;
+        fin();
+        if(isMutating){
+          err({ message: (e && e.name === "AbortError") ? "Waktu tunggu server habis (45 detik). Cek Log Broadcast sebelum mencoba lagi agar tidak terkirim double." : ("Gagal menghubungi server: " + ((e && e.message) || e)) });
+        } else {
+          rpcJsonp(fn,args,ok,err);
+        }
+      });
+  }catch(e){
+    if(done) return;
+    done = true;
+    fin();
+    if(isMutating){
+      err({ message: "Gagal menghubungi server: " + ((e && e.message) || e) });
+    } else {
+      rpcJsonp(fn,args,ok,err);
+    }
+  }
 }
 function rpcCall(fn,args,ok,err){
   if(RPC_URL){ rpcFetch(fn,args,ok,err); } else { rpcJsonp(fn,args,ok,err); }
@@ -213,10 +236,10 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
 <div class="bg"></div><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 <div class="wrap">
   <div class="nav">
-    <a href="index.html?v=20261020n" onclick="this.href='index.html?v='+Date.now()">🏠 Beranda</a>
-    <a class="on" href="p.html?v=20261020n" onclick="this.href='p.html?v='+Date.now()">📲 Portal Broadcast</a>
-    <a href="https://undangan.arhanud80.online/tradisi?jenis=tradisi&v=20261020n" target="_blank" rel="noopener">🎖️ Undangan 1: Tradisi + HUT (07.30) ↗</a>
-    <a href="https://undangan.arhanud80.online/syukuran?jenis=hut&v=20261020n" target="_blank" rel="noopener">🎉 Undangan 2: Khusus HUT (09.00) ↗</a>
+    <a href="index.html?v=20261020o" onclick="this.href='index.html?v='+Date.now()">🏠 Beranda</a>
+    <a class="on" href="p.html?v=20261020o" onclick="this.href='p.html?v='+Date.now()">📲 Portal Broadcast</a>
+    <a href="https://undangan.arhanud80.online/tradisi?jenis=tradisi&v=20261020o" target="_blank" rel="noopener">🎖️ Undangan 1: Tradisi + HUT (07.30) ↗</a>
+    <a href="https://undangan.arhanud80.online/syukuran?jenis=hut&v=20261020o" target="_blank" rel="noopener">🎉 Undangan 2: Khusus HUT (09.00) ↗</a>
     <a href="javascript:void(0)" id="btnRefreshUtama" onclick="refreshDataSekarang('nav')" style="border-color:#2f9e57;color:#7ae2a5;font-weight:700" title="Reset angka Terkirim, Gagal, Konfirmasi & Log kembali ke setelan awal (0)"><span id="icoRefreshUtama">🔄</span> <span id="lblRefreshUtama">Refresh Data</span></a>
   </div>
   <div class="logos">
@@ -293,8 +316,8 @@ if(RPC_URL||!(window.google&&window.google.script&&window.google.script.run)){
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" onclick="salinKodePatchGs()" style="background:#f2c63d;color:#151208;font-weight:800;padding:9px 14px;font-size:12.5px">📋 SALIN KODE PATCH Code.gs (v20261020-v2)</button>
-          <a class="b2" href="PATCH-BROADCAST-Code.gs?v=20261020n" download="PATCH-BROADCAST-Code.gs" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 12px;font-size:12px">📥 Unduh Patch .gs</a>
+          <button type="button" onclick="salinKodePatchGs()" style="background:#f2c63d;color:#151208;font-weight:800;padding:9px 14px;font-size:12.5px">📋 SALIN KODE PATCH Code.gs (v20261020-v3)</button>
+          <a class="b2" href="PATCH-BROADCAST-Code.gs?v=20261020o" download="PATCH-BROADCAST-Code.gs" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 12px;font-size:12px">📥 Unduh Patch .gs</a>
         </div>
       </div>
     </div>
@@ -838,7 +861,10 @@ function renderTabel(){
       '<td>'+stKirimHtml+'</td>'+
       '<td>'+badgeKonf(g)+(g.confirm_waktu?'<br><span class="muted" style="font-size:11px">'+esc(g.confirm_waktu)+'</span>':'')+'</td>'+
       '<td>'+
-        (okHp ? '<button class="b2" onclick="kirimUlang(\''+g.token+'\',\''+nmSafe+'\')">📨 Kirim WA</button> ' : '')+
+        (okHp ? (g.invite_status === "terkirim"
+          ? '<button class="b2" style="border-color:#2f9e57;color:#7ae2a5" onclick="kirimUlang(\''+g.token+'\',\''+nmSafe+'\')" title="Sudah terkirim 1x. Klik hanya bila benar-benar ingin kirim ulang">✔ Sudah Terkirim (1x)</button> '
+          : '<button class="b2" onclick="kirimUlang(\''+g.token+'\',\''+nmSafe+'\')">📨 Kirim WA</button> '
+        ) : '')+
         '<button class="b2" style="border-color:#2f9e57;color:#7ae2a5" onclick="pilihKonfTamu(\''+g.token+'\')">✅ Konfirmasi</button> '+
         '<a class="b2" style="text-decoration:none;display:inline-block" href="'+esc(u)+'" target="_blank" rel="noopener">📖 Undangan ↗</a> '+
         '<button class="b2" style="border-color:#c0392b;color:#ff8a7a" onclick="hapusTamu(\''+g.token+'\',\''+nmSafe+'\')">🗑 Hapus</button>'+
@@ -955,7 +981,7 @@ var _URUTAN_CONTOH = ["mochammad abian r. a.","letkol arh erfan","uji kirim (nom
 
 // State sesi uji sistem: saat di-Refresh, seluruh angka (Terkirim, Gagal, Hadir, Log) kembali ke 0
 var _SESSION_KEY = "arhanud80_active_session_v2";
-var _SESSION_INIT_VER = "20261020n";
+var _SESSION_INIT_VER = "20261020o";
 function _getSessionState(){
   try{
     var ver = localStorage.getItem("arhanud80_session_ver");
@@ -1244,7 +1270,7 @@ function muatStatus(){
   var siap = rows.filter(function(r){ var st=String(r.invite_status||""); return hasValidHp(r.hp) && st!=="terkirim" && st!=="gagal"; }).length;
   var nohp = rows.filter(function(r){ return !hasValidHp(r.hp); }).length;
   if($("stAuto")){
-    $("stAuto").textContent = "⛔ Broadcast Otomatis: DIHENTIKAN (Pengiriman Hanya Manual) · Siap kirim (ada HP): " + siap + " · Menunggu No. HP: " + nohp;
+    $("stAuto").textContent = "🛡️ Proteksi Anti-Double WA: AKTIF (Maks 1x/Nomor) · ⛔ Broadcast Otomatis: NONAKTIF · Siap kirim (ada HP): " + siap + " · Menunggu No. HP: " + nohp;
   }
 }
 function muatLog(){
@@ -1301,6 +1327,14 @@ function ambilTeksFormatUndangan(jenis){
   return (jns === "HUT") ? normalisasiWaktuPesan(rawHut, "HUT") : normalisasiWaktuPesan(rawTrad, "TRADISI");
 }
 
+function _normHpKey(hp){
+  return String(hp || "").replace(/\D+/g, "").replace(/^0+/, "").replace(/^62/, "");
+}
+
+window._inFlightKirim = {};
+window._antrianAktif = false;
+window._lastSyncedFormatHash = "";
+
 function sinkronkanFormatAktifKeServer(teksAktif, cb, jenisAktif){
   var tTrad = ambilTeksFormatUndangan("TRADISI");
   var tHut  = ambilTeksFormatUndangan("HUT");
@@ -1309,7 +1343,13 @@ function sinkronkanFormatAktifKeServer(teksAktif, cb, jenisAktif){
     else if(jenisAktif === "TRADISI") tTrad = teksAktif;
     else tTrad = teksAktif;
   }
+  var curHash = tTrad + "|||" + tHut;
+  if(window._lastSyncedFormatHash === curHash){
+    if(cb) cb();
+    return;
+  }
   google.script.run.withSuccessHandler(function(){
+    window._lastSyncedFormatHash = curHash;
     if(cb) cb();
   }).withFailureHandler(function(){
     if(cb) cb();
@@ -1319,6 +1359,7 @@ function sinkronkanFormatAktifKeServer(teksAktif, cb, jenisAktif){
 function pulihkanFormatDefaultKeServer(){
   var tTrad = ambilTeksFormatUndangan("TRADISI");
   var tHut  = ambilTeksFormatUndangan("HUT");
+  window._lastSyncedFormatHash = tTrad + "|||" + tHut;
   google.script.run.saveWaFormat(tTrad, tHut);
 }
 
@@ -1328,7 +1369,7 @@ function salinKodePatchGs(){
     .then(function(txt){
       if(navigator.clipboard && navigator.clipboard.writeText){
         navigator.clipboard.writeText(txt).then(function(){
-          alert("✅ KODE PATCH Code.gs (v20261020-v2) BERHASIL DISALIN!\n\nLangkah selanjutnya di Google Apps Script:\n1. Buka editor Code.gs\n2. Hapus bagian PATCH-BROADCAST-Code.gs lama di bagian bawah, lalu TEMPEL (Paste) kode baru ini\n3. Klik Deploy → Manage deployments → Edit (ikon pensil ✏️) → Version: New version → Deploy.");
+          alert("✅ KODE PATCH Code.gs (v20261020-v3 Anti-Double WA) BERHASIL DISALIN!\n\nLangkah selanjutnya di Google Apps Script:\n1. Buka editor Code.gs\n2. Hapus bagian PATCH-BROADCAST-Code.gs lama di bagian bawah, lalu TEMPEL (Paste) kode baru ini\n3. Klik Deploy → Manage deployments → Edit (ikon pensil ✏️) → Version: New version → Deploy.");
         }).catch(function(){
           window.open("PATCH-BROADCAST-Code.gs?v=" + Date.now(), "_blank");
         });
@@ -1341,61 +1382,118 @@ function salinKodePatchGs(){
     });
 }
 
-function _verifikasiTerkirimViaLog(res, g, cb){
+function _tandaiStatusKirimSemuaBarisSejenis(g, statusBaru){
+  if(!g) return;
+  _saveSentOverride(g.nama, g.hp, g.token, statusBaru);
+  var hpKey = _normHpKey(g.hp);
+  var rows = window._rows || [];
+  for(var i=0;i<rows.length;i++){
+    var r = rows[i];
+    if(r.token === g.token || (hpKey && _normHpKey(r.hp) === hpKey)){
+      r.invite_status = statusBaru;
+      if(statusBaru === "terkirim"){
+        _saveSentOverride(r.nama, r.hp, r.token, "terkirim");
+      }
+    }
+  }
+}
+
+function _verifikasiTerkirimViaLog(res, g, cb, sendStartTs){
   var langsungOk = (res && (res.ok === true || (res.sent && res.sent > 0) || res.status === "sent"));
   if(langsungOk){
-    if(g) _saveSentOverride(g.nama, g.hp, g.token);
+    if(g) _tandaiStatusKirimSemuaBarisSejenis(g, "terkirim");
     cb(true, "");
     return;
   }
+  var minTs = (sendStartTs || Date.now()) - 25000;
   google.script.run.withSuccessHandler(function(logs){
-    var recent = Array.isArray(logs) ? logs.slice(0, 5) : [];
+    var recent = Array.isArray(logs) ? logs.slice(0, 6) : [];
     var foundSent = false;
     var nmLow = g && g.nama ? String(g.nama).trim().toLowerCase() : "";
+    var hpKey = g && g.hp ? _normHpKey(g.hp) : "";
     for(var i=0;i<recent.length;i++){
-      var p = String((recent[i] && recent[i].pesan) || "");
-      _normalisasiPesanLogBroadcast(p);
-      if((!nmLow || p.toLowerCase().indexOf(nmLow) >= 0) && (/—\s*sent\s*$/i.test(p) || /^Terkirim\b/i.test(p))){
+      var item = recent[i] || {};
+      var p = String(item.pesan || "");
+      var wTs = Date.parse(String(item.waktu || ""));
+      _normalisasiPesanLogBroadcast(p, item.waktu);
+      if(!isNaN(wTs) && wTs < minTs) continue;
+      var cocokTarget = (nmLow && p.toLowerCase().indexOf(nmLow) >= 0) || (hpKey && p.replace(/\D+/g,"").indexOf(hpKey) >= 0);
+      if(cocokTarget && (/—\s*sent\s*$/i.test(p) || /^Terkirim\b/i.test(p))){
         foundSent = true;
         break;
       }
     }
     if(foundSent){
-      if(g) _saveSentOverride(g.nama, g.hp, g.token);
+      if(g) _tandaiStatusKirimSemuaBarisSejenis(g, "terkirim");
       cb(true, "");
     } else {
-      var err = (res && res.error) ? res.error : "Gagal mengirim — cek status Device di Fonnte.";
+      if(g && _getStatusKirimSesi(g) !== "terkirim") _tandaiStatusKirimSemuaBarisSejenis(g, "gagal");
+      var err = (res && res.error) ? res.error : "Gagal mengirim — cek koneksi Device WhatsApp di Fonnte.";
       cb(false, err);
     }
   }).withFailureHandler(function(){
-    var err = (res && res.error) ? res.error : "Gagal mengirim — cek status Device di Fonnte.";
+    if(g && _getStatusKirimSesi(g) !== "terkirim") _tandaiStatusKirimSemuaBarisSejenis(g, "gagal");
+    var err = (res && res.error) ? res.error : "Gagal mengirim — cek koneksi Device WhatsApp di Fonnte.";
     cb(false, err);
   }).logBroadcast();
 }
 
 function kirimUlang(token, nama){
+  if(window._antrianAktif){
+    alert("⚠️ Antrian broadcast sedang berjalan! Tunggu hingga antrian selesai agar tidak terjadi pengiriman double.");
+    return;
+  }
   var g = null;
   var rows = window._rows || [];
   for(var i=0;i<rows.length;i++){ if(rows[i].token === token){ g = rows[i]; break; } }
+  var hpKey = g ? _normHpKey(g.hp) : "";
+  var lockTok = "tok:" + token;
+  var lockHp  = hpKey ? ("hp:" + hpKey) : lockTok;
+
+  if(window._inFlightKirim[lockTok] || window._inFlightKirim[lockHp]){
+    alert("⏳ Pengiriman ke " + nama + " sedang diproses.\nMohon tunggu sampai selesai agar tidak terkirim double.");
+    return;
+  }
+
   var selEl = $("selJenis_" + token);
   var jns = normJenis(selEl ? selEl.value : (g && (g.jenis || g.kategori)));
   if(g){ g.jenis = jns; g.kategori = jns; }
   var lblJns = (jns === "HUT") ? "Undangan Acara Syukuran (Pukul 09.00 WIB)" : "Undangan Tradisi (07.30 WIB) & Syukuran (09.00 WIB)";
-  if(!confirm("Kirim " + lblJns + " ke: " + nama + " ?")) return;
+
+  var sudahTerkirim = (g && (String(g.invite_status||"") === "terkirim" || _getStatusKirimSesi(g) === "terkirim"));
+  if(sudahTerkirim){
+    var konfDouble = "⚠️ PROTEKSI ANTI-DOUBLE WA:\n\n" +
+      "Tamu: " + nama + "\n" +
+      "Nomor WA: " + (g ? fmtHpTampil(g.hp) : "-") + "\n" +
+      "Status: ✔ SUDAH TERKIRIM (1x)\n\n" +
+      "Nomor ini sudah menerima pesan undangan pada sesi ini. Agar penerima tidak mendapat pesan double, tekan Cancel bila tidak perlu.\n\n" +
+      "Apakah Anda benar-benar yakin ingin mengirim ulang?";
+    if(!confirm(konfDouble)) return;
+  } else {
+    if(!confirm("Kirim 1x " + lblJns + " ke:\n• Nama: " + nama + "\n• Nomor WA: " + (g ? fmtHpTampil(g.hp) : "-") + " ?")) return;
+  }
+
+  window._inFlightKirim[lockTok] = true;
+  window._inFlightKirim[lockHp] = true;
+  var sendStartTs = Date.now();
   var teksKirim = ambilTeksFormatUndangan(jns);
+
   sinkronkanFormatAktifKeServer(teksKirim, function(){
     google.script.run.withSuccessHandler(function(j){
       _verifikasiTerkirimViaLog(j, g || { token: token, nama: nama }, function(ok, errMsg){
+        delete window._inFlightKirim[lockTok];
+        delete window._inFlightKirim[lockHp];
+        renderTabel();
         if(ok){
-          if(g) g.invite_status = "terkirim";
-          renderTabel();
-          alert("✔ Terkirim (" + lblJns + ") ke " + nama + " — pesan WhatsApp berhasil dikirim.");
+          alert("✔ Terkirim 1x (" + lblJns + ") ke " + nama + " — pesan WhatsApp berhasil dikirim.");
         } else {
           alert("✗ " + errMsg);
         }
         muat(false);
-      });
+      }, sendStartTs);
     }).withFailureHandler(function(e){
+      delete window._inFlightKirim[lockTok];
+      delete window._inFlightKirim[lockHp];
       alert("✗ "+((e&&e.message)||e));
     }).kirimUlang(token, jns);
   }, jns);
@@ -1403,54 +1501,117 @@ function kirimUlang(token, nama){
 var _stopQueueFlag = false;
 function hentikanBroadcastQueue(){
   _stopQueueFlag = true;
+  window._antrianAktif = false;
   if($("btnStopQueue")) $("btnStopQueue").style.display = "none";
 }
 
 function jalankanAntrianKirimTamu(daftar, judulProses, customTemplateGetter){
+  if(window._antrianAktif){
+    alert("⚠️ Pengiriman broadcast sedang berjalan! Tunggu hingga antrian saat ini selesai agar tidak terjadi pengiriman double.");
+    return;
+  }
   if(!daftar || !daftar.length){
     alert("Tidak ada tamu siap kirim (yang memiliki nomor HP valid) pada filter ini.");
     return;
   }
+
+  // PROTEKSI ANTI-DOUBLE SEND: Deduplikasi daftar berdasarkan Token & Nomor HP (1 nomor HP maksimal 1x WA)
+  var seenTok = {};
+  var seenHp = {};
+  var antrianUnik = [];
+  var dilewatiDuplikat = 0;
+
+  for(var k=0;k<daftar.length;k++){
+    var item = daftar[k];
+    if(!item || !hasValidHp(item.hp)) continue;
+    var tokKey = String(item.token || "").trim();
+    var hpKey = _normHpKey(item.hp);
+    if(!tokKey || !hpKey) continue;
+
+    // Untuk broadcast undangan utama (bukan reminder), lewati bila sudah terkirim di sesi ini
+    if(!customTemplateGetter && (String(item.invite_status||"") === "terkirim" || _getStatusKirimSesi(item) === "terkirim")){
+      dilewatiDuplikat++;
+      continue;
+    }
+    // Cegah nomor HP yang sama dikirim lebih dari 1 kali dalam 1 proses broadcast
+    if(seenTok[tokKey] || seenHp[hpKey]){
+      dilewatiDuplikat++;
+      continue;
+    }
+    seenTok[tokKey] = true;
+    seenHp[hpKey] = true;
+    antrianUnik.push(item);
+  }
+
+  if(!antrianUnik.length){
+    alert("Seluruh nomor WA pada daftar ini sudah terkirim (atau merupakan duplikat nomor yang sama). Tidak ada pengiriman ulang agar tidak terjadi double WA.");
+    return;
+  }
+
   _stopQueueFlag = false;
+  window._antrianAktif = true;
   if($("btnStopQueue")) $("btnStopQueue").style.display = "inline-block";
-  var total = daftar.length, idx = 0, terkirim = 0, gagal = [];
+  var total = antrianUnik.length, idx = 0, terkirim = 0, gagal = [];
   var lastSyncedKey = null;
+  var sentHpInRun = {};
 
   function langkah(){
     if(_stopQueueFlag || idx >= total){
+      window._antrianAktif = false;
       if($("btnStopQueue")) $("btnStopQueue").style.display = "none";
       if(customTemplateGetter) pulihkanFormatDefaultKeServer();
-      var infoSelesai = (_stopQueueFlag ? "⏹️ Pengiriman dihentikan. " : "✅ " + (judulProses || "Broadcast") + " selesai! ") +
-        "Terkirim: " + terkirim + "/" + total + " tamu" +
+      var infoSelesai = (_stopQueueFlag ? "⏹️ Pengiriman dihentikan. " : "✅ " + (judulProses || "Broadcast") + " selesai (Anti-Double 1x/Nomor)! ") +
+        "Terkirim: " + terkirim + "/" + total + " nomor unik" +
+        (dilewatiDuplikat > 0 ? (" · Dilewati otomatis (duplikat/sudah terkirim): " + dilewatiDuplikat) : "") +
         (gagal.length ? (" | Gagal (" + gagal.length + "): " + gagal.slice(0, 8).join(", ")) : ".");
       $("stKirim").innerHTML = '<span class="' + (gagal.length ? 'err' : 'ok') + '">' + esc(infoSelesai) + '</span>';
       muat(false);
       return;
     }
-    var g = daftar[idx++];
+    var g = antrianUnik[idx++];
+    var hpKey = _normHpKey(g.hp);
+
+    // Guard berlapis tepat sebelum kirim: pastikan nomor ini belum terkirim pada sesi/antrian ini
+    if(sentHpInRun[hpKey] || (!customTemplateGetter && _getStatusKirimSesi(g) === "terkirim")){
+      dilewatiDuplikat++;
+      setTimeout(langkah, 50);
+      return;
+    }
+    sentHpInRun[hpKey] = true;
+
     var selEl = $("selJenis_" + g.token);
     var jns = normJenis(selEl ? selEl.value : (g.jenis || g.kategori));
     g.jenis = jns; g.kategori = jns;
     var teksKirim = customTemplateGetter ? customTemplateGetter(jns, g) : ambilTeksFormatUndangan(jns);
     var jamInfo = (jns === "HUT") ? "Syukuran 09.00 WIB" : "Tradisi 07.30 & Syukuran 09.00 WIB";
-    $("stKirim").textContent = "⏳ [" + idx + "/" + total + "] Mengirim WA (" + jns + " · " + jamInfo + ") ke " + g.nama + " (" + g.hp + ") — Kategori: " + (g.org || "Contoh") + "...";
+    $("stKirim").textContent = "⏳ [" + idx + "/" + total + "] Mengirim 1x WA (" + jns + " · " + jamInfo + ") ke " + g.nama + " (" + g.hp + ") — Kategori: " + (g.org || "Contoh") + "...";
 
     function eksekusiKirim(){
+      var sendStartTs = Date.now();
+      var lockTok = "tok:" + g.token;
+      var lockHp  = "hp:" + hpKey;
+      window._inFlightKirim[lockTok] = true;
+      window._inFlightKirim[lockHp] = true;
+
       google.script.run.withSuccessHandler(function(res){
         _verifikasiTerkirimViaLog(res, g, function(ok){
+          delete window._inFlightKirim[lockTok];
+          delete window._inFlightKirim[lockHp];
           if(ok){
             terkirim++;
-            g.invite_status = "terkirim";
           } else {
             gagal.push(g.nama);
-            g.invite_status = "gagal";
           }
           renderTabel();
-          setTimeout(langkah, 1100);
-        });
+          setTimeout(langkah, 1200);
+        }, sendStartTs);
       }).withFailureHandler(function(){
+        delete window._inFlightKirim[lockTok];
+        delete window._inFlightKirim[lockHp];
         gagal.push(g.nama);
-        setTimeout(langkah, 1100);
+        _tandaiStatusKirimSemuaBarisSejenis(g, "gagal");
+        renderTabel();
+        setTimeout(langkah, 1200);
       }).kirimUlang(g.token, jns);
     }
 
@@ -1501,38 +1662,56 @@ function hapusSemua(){
   }).withFailureHandler(function(e){ alert("✗ "+((e&&e.message)||e)); }).hapusSemuaTamu();
 }
 function tesKirim(){
+  if(window._inFlightTes){
+    alert("⏳ Tes kirim sedang diproses. Mohon tunggu hingga selesai agar tidak terkirim double.");
+    return;
+  }
   var n=$("ntes").value.trim();
   var jns=normJenis($("jTes") ? $("jTes").value : "TRADISI");
   if(!n){ alert("Isi nomor tes dulu (contoh: 081284588834)."); return; }
   var jamKet = (jns === "HUT") ? "Undangan Acara Syukuran 09.00 WIB" : "Undangan Tradisi 07.30 WIB & Syukuran 09.00 WIB";
-  $("stTes").textContent="⏳ Mengirim tes undangan ("+jamKet+") ke "+n+"…";
+  $("stTes").textContent="⏳ Mengirim 1x tes undangan ("+jamKet+") ke "+n+"…";
 
   // Cari tamu contoh yang cocok dengan nomor tes (default: Mochammad Abian R. A.)
-  var digitsIn = n.replace(/\D+/g, "").replace(/^0+/, "").replace(/^62/, "");
+  var digitsIn = _normHpKey(n);
   var rows = window._rows || [];
   var gMatch = null;
   for(var i=0;i<rows.length;i++){
-    var dRow = String(rows[i].hp||"").replace(/\D+/g, "").replace(/^0+/, "").replace(/^62/, "");
+    var dRow = _normHpKey(rows[i].hp);
     if(digitsIn && dRow && digitsIn === dRow){ gMatch = rows[i]; break; }
   }
-  if(!gMatch) gMatch = window._g0 || { token: "ggEa9dSV", nama: "Mochammad Abian R. A." };
+  if(!gMatch) gMatch = window._g0 || { token: "ma6A5xKM", nama: "Mochammad Abian R. A." };
 
-  // Gunakan kirimUlang langsung pada token tamu contoh bila cocok agar nama & token di link 100% akurat
+  window._inFlightTes = true;
+  var sendStartTs = Date.now();
   var teksKirim = ambilTeksFormatUndangan(jns);
   sinkronkanFormatAktifKeServer(teksKirim, function(){
-    if(gMatch && gMatch.token && digitsIn && String(gMatch.hp||"").replace(/\D+/g, "").replace(/^0+/, "").replace(/^62/, "") === digitsIn){
+    if(gMatch && gMatch.token && digitsIn && _normHpKey(gMatch.hp) === digitsIn){
       google.script.run.withSuccessHandler(function(j){
-        $("stTes").innerHTML = '<span class="ok">✔ TERKIRIM ('+esc(jamKet)+') ke '+esc(n)+' ('+esc(gMatch.nama)+')</span> — cek WhatsApp.';
-        muat(true);
+        _verifikasiTerkirimViaLog(j, gMatch, function(ok, errMsg){
+          window._inFlightTes = false;
+          renderTabel();
+          if(ok){
+            $("stTes").innerHTML = '<span class="ok">✔ TERKIRIM 1x ('+esc(jamKet)+') ke '+esc(n)+' ('+esc(gMatch.nama)+')</span> — cek WhatsApp.';
+          } else {
+            $("stTes").innerHTML = '<span class="err">✗ GAGAL: '+esc(errMsg || "cek koneksi Device Fonnte")+'</span>';
+          }
+          muat(true);
+        }, sendStartTs);
       }).withFailureHandler(function(e){
+        window._inFlightTes = false;
         $("stTes").innerHTML='<span class="err">✗ '+esc((e&&e.message)||e)+'</span>';
       }).kirimUlang(gMatch.token, jns);
     } else {
       google.script.run.withSuccessHandler(function(j){
-        $("stTes").innerHTML = (j && j.status==="sent")
-          ? '<span class="ok">✔ TERKIRIM ('+esc(jamKet)+') ke '+esc(n)+' ('+esc(j.nama||gMatch.nama)+')</span> — cek WhatsApp.'
-          : '<span class="err">✗ GAGAL: '+esc((j&&j.status)||"cek Fonnte")+'</span> — cek koneksi Device Fonnte.';
+        _verifikasiTerkirimViaLog(j, { nama: (j && j.nama) || gMatch.nama, hp: n, token: "" }, function(ok, errMsg){
+          window._inFlightTes = false;
+          $("stTes").innerHTML = (ok || (j && j.status==="sent"))
+            ? '<span class="ok">✔ TERKIRIM 1x ('+esc(jamKet)+') ke '+esc(n)+' ('+esc((j&&j.nama)||gMatch.nama)+')</span> — cek WhatsApp.'
+            : '<span class="err">✗ GAGAL: '+esc((j&&j.status)||errMsg||"cek Fonnte")+'</span> — cek koneksi Device Fonnte.';
+        }, sendStartTs);
       }).withFailureHandler(function(e){
+        window._inFlightTes = false;
         $("stTes").innerHTML='<span class="err">✗ '+esc((e&&e.message)||e)+'</span>';
       }).kirimTesUndangan(n, jns);
     }
@@ -1549,17 +1728,31 @@ function kirimSemua(filterJenis){
     return getKategoriRekapTamu(g) === kat;
   });
   var tanpaHp = 0;
+  var sudahTerkirimCount = 0;
+  var duplikatHpCount = 0;
+  var seenHp = {};
   var target = dalamKat.filter(function(g){
     var jns = normJenis(g.jenis || g.kategori);
     if(mode === "TRADISI" && jns !== "TRADISI") return false;
     if(mode === "HUT" && jns !== "HUT") return false;
     if(!hasValidHp(g.hp)){ tanpaHp++; return false; }
-    if(String(g.invite_status || "") === "terkirim") return false;
+    if(String(g.invite_status || "") === "terkirim" || _getStatusKirimSesi(g) === "terkirim"){
+      sudahTerkirimCount++;
+      return false;
+    }
+    var hpKey = _normHpKey(g.hp);
+    if(!hpKey || seenHp[hpKey]){
+      duplikatHpCount++;
+      return false;
+    }
+    seenHp[hpKey] = true;
     return true;
   });
 
   if(!target.length){
-    alert("Tidak ada tamu yang belum terkirim (dengan nomor HP valid) pada:\n• Kategori: " + labelKategoriRekap(kat) + "\n• Jenis: " + mode + (tanpaHp ? ("\n\n(" + tanpaHp + " tamu di kategori ini belum memiliki nomor HP dan dilewati otomatis)") : ""));
+    alert("Tidak ada nomor WA yang belum terkirim pada:\n• Kategori: " + labelKategoriRekap(kat) + "\n• Jenis: " + mode +
+      (sudahTerkirimCount ? ("\n• Sudah Terkirim (dilindungi anti-double): " + sudahTerkirimCount + " tamu") : "") +
+      (tanpaHp ? ("\n• HP belum tercantum (dilewati otomatis): " + tanpaHp + " tamu") : ""));
     return;
   }
 
@@ -1569,17 +1762,20 @@ function kirimSemua(filterJenis){
 
   if(kat !== "CONTOH_SEBELUMNYA"){
     var warnAsli = "⚠️ PERINGATAN PROTEKSI KONTAK TAMU ASLI\n\n" +
-      "Anda sedang memilih kategori: [" + labelKategoriRekap(kat) + "] (" + target.length + " kontak tamu asli).\n\n" +
+      "Anda sedang memilih kategori: [" + labelKategoriRekap(kat) + "] (" + target.length + " nomor WA unik).\n\n" +
       "Apabila ini hanya PENGECEKAN / UJI COBA BROADCAST, tekan Cancel lalu pilih kategori:\n" +
       "👉 '🧪 Nomor Contoh Sebelumnya'\n\n" +
       "Apakah Anda benar-benar yakin ingin mengirim ke kontak tamu asli pada kategori ini?";
     if(!confirm(warnAsli)) return;
   }
 
-  var msgKonf = "KIRIM BROADCAST UNDANGAN WHATSAPP\n\n" +
+  var msgKonf = "KIRIM BROADCAST UNDANGAN WHATSAPP (PROTEKSI ANTI-DOUBLE 1x/NOMOR)\n\n" +
     "🗂️ Filter Kategori: " + labelKategoriRekap(kat) + "\n" +
     "🎫 Jenis Undangan: " + labelJns + "\n" +
-    "📱 Jumlah Siap Kirim: " + target.length + " nomor WA aktif" +
+    "📱 Nomor WA Unik Siap Kirim: " + target.length + " nomor\n" +
+    "🛡️ Proteksi Anti-Double: Aktif (Maksimal 1x WA per Nomor HP)" +
+    (sudahTerkirimCount > 0 ? ("\n✔ Dilewati otomatis (sudah terkirim): " + sudahTerkirimCount + " tamu") : "") +
+    (duplikatHpCount > 0 ? ("\n🔁 Dilewati otomatis (nomor HP ganda): " + duplikatHpCount + " baris") : "") +
     (tanpaHp > 0 ? ("\n⚠️ Dilewati otomatis (HP belum tercantum): " + tanpaHp + " tamu") : "") +
     "\n\nLanjutkan pengiriman broadcast sekarang?";
 
@@ -1911,20 +2107,27 @@ function resetFormatReminder(){
 }
 
 function tesKirimReminder(){
+  if(window._inFlightTes){
+    alert("⏳ Pengiriman tes sedang diproses. Mohon tunggu hingga selesai agar tidak terkirim double.");
+    return;
+  }
   var hp = $("ntesRem").value.trim() || $("ntes").value.trim();
   var jns = normJenis($("jTesRem") ? $("jTesRem").value : "TRADISI");
   var tahap = window._tabRem || "H3";
   if(!hp){ alert("Isi nomor WA tes terlebih dahulu."); return; }
+  window._inFlightTes = true;
   var tplReminderSiap = rakitTemplateReminderUntukJenis(tahap, jns);
   var jamKet = (jns === "HUT") ? "Syukuran 09.00 WIB" : "Tradisi 07.30 & Syukuran 09.00 WIB";
-  $("stReminder").textContent = "⏳ Mengirim tes pengingat " + tahap + " (" + jamKet + ") ke " + hp + "...";
+  $("stReminder").textContent = "⏳ Mengirim 1x tes pengingat " + tahap + " (" + jamKet + ") ke " + hp + "...";
   sinkronkanFormatAktifKeServer(tplReminderSiap, function(){
     google.script.run.withSuccessHandler(function(j){
+      window._inFlightTes = false;
       pulihkanFormatDefaultKeServer();
       $("stReminder").innerHTML = (j && j.status === "sent")
-        ? '<span class="ok">✔ Tes Pengingat '+esc(tahap)+' ('+esc(jamKet)+') terkirim ke '+esc(hp)+'</span>'
+        ? '<span class="ok">✔ Tes Pengingat 1x '+esc(tahap)+' ('+esc(jamKet)+') terkirim ke '+esc(hp)+'</span>'
         : '<span class="err">✗ Gagal tes pengingat: '+esc((j&&j.status)||"cek Fonnte")+'</span>';
     }).withFailureHandler(function(e){
+      window._inFlightTes = false;
       pulihkanFormatDefaultKeServer();
       $("stReminder").innerHTML = '<span class="err">✗ '+fmtErr(e)+'</span>';
     }).kirimTesUndangan(hp, jns);
