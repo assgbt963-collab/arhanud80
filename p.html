@@ -137,8 +137,7 @@ try{
   }
 }catch(e){}
 function bersihkanCacheAplikasi(){
-  try{ _resetSessionKeNol(); }catch(e){}
-  try{ localStorage.removeItem("arhanud80_rows_cache_v5"); }catch(e){}
+  try{ localStorage.removeItem("arhanud80_rows_cache_v6"); }catch(e){}
   try{ sessionStorage.clear(); }catch(e){}
   if(window.caches && caches.keys){
     caches.keys().then(function(keys){
