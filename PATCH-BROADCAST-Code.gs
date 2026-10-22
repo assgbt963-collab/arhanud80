@@ -748,7 +748,11 @@ function importTamuDetail(list) {
 function dataPanitia() {
   _hapusTriggerLanjutOtomatis();
   try { clearTamuCache(); } catch (e0) {}
-  var all = tamuRows();
+  var all = tamuRows().filter(function(g) {
+    var nm = String((g && g.nama) || "").trim();
+    var og = String((g && g.org) || "").trim();
+    return nm.indexOf("__SHIELD") !== 0 && og !== "__SHIELD__";
+  });
   var terkirim = 0, gagal = 0, belum = 0, hadir = 0, tidak = 0, orang = 0;
   var rows = all.map(function(g) {
     var st = String(g.invite_status || "");
