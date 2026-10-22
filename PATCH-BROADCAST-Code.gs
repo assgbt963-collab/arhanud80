@@ -1031,32 +1031,8 @@ function hapusSemuaTamu() {
 }
 
 function resetDataKeSetelanAwal() {
+  // Mode Produksi Aktif: Fungsi reset data telah dinonaktifkan agar data pengiriman & konfirmasi tidak pernah terhapus
   _hapusTriggerLanjutOtomatis();
-  var sh = sheetTamu();
-  var data = sh.getDataRange().getValues();
-  if (data.length > 1) {
-    var hdr = data[0].map(function(h) { return String(h || "").trim().toLowerCase(); });
-    var idxInvSt = hdr.indexOf("invite_status");
-    var idxInvWk = hdr.indexOf("invite_waktu");
-    var idxHadir = hdr.indexOf("hadir");
-    var idxJml   = hdr.indexOf("jumlah");
-    var idxConfW = hdr.indexOf("confirm_waktu");
-    for (var r = 1; r < data.length; r++) {
-      if (idxInvSt >= 0) data[r][idxInvSt] = "";
-      if (idxInvWk >= 0) data[r][idxInvWk] = "";
-      if (idxHadir >= 0) data[r][idxHadir] = "";
-      if (idxJml >= 0)   data[r][idxJml]   = 1;
-      if (idxConfW >= 0) data[r][idxConfW] = "";
-    }
-    sh.getRange(1, 1, data.length, data[0].length).setValues(data);
-  }
-  try {
-    var shL = sheetLog();
-    var lastL = shL.getLastRow();
-    if (lastL > 1) shL.deleteRows(2, lastL - 1);
-  } catch (eL) {}
-  try { clearTamuCache(); } catch (e1) {}
-  try { flushCache(); } catch (e2) {}
   return dataPanitia();
 }
 
