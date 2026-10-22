@@ -761,6 +761,7 @@ function dataPanitia() {
     else belum++;
 
     var h = String(g.hadir || "").trim().toUpperCase();
+    if (h === "BELUM") h = "";
     var jml = Math.max(1, Number(g.jumlah || 1) || 1);
     if (h === "HADIR") { hadir++; orang += jml; }
     else if (h) { tidak++; jml = 0; }

@@ -980,7 +980,7 @@ var _URUTAN_CONTOH = ["mochammad abian r. a.","letkol arh erfan","uji kirim (nom
 
 // Mode Produksi Aktif: Data pengiriman & konfirmasi disimpan permanen (fungsi reset data dinonaktifkan)
 var _SESSION_KEY = "arhanud80_prod_state_v2";
-var _PROD_START_TS = 1792659600000; // 22 Okt 2026 16:10:00 WIB (awal penggunaan produksi setelah proteksi shield)
+var _PROD_START_TS = 1792661100000; // 22 Okt 2026 16:10:00 WIB (awal penggunaan produksi setelah proteksi shield)
 function _getSessionState(){
   try{
     var s = JSON.parse(localStorage.getItem(_SESSION_KEY) || "null");
@@ -1021,10 +1021,12 @@ function _getStatusKirimSesi(g){
 }
 function _saveKonfSesi(token, nama, hadir, jumlah, ket){
   var st = _getSessionState();
+  var hClean = String(hadir||"").trim().toUpperCase();
+  if(hClean === "BELUM") hClean = "";
   var obj = {
-    hadir: String(hadir||"").toUpperCase(),
-    jumlah: Math.max(1, parseInt(jumlah, 10) || 1),
-    confirm_waktu: hadir ? _waktuSekarangWib() : "",
+    hadir: hClean,
+    jumlah: hClean ? Math.max(1, parseInt(jumlah, 10) || 1) : 1,
+    confirm_waktu: hClean ? _waktuSekarangWib() : "",
     ket: String(ket||"")
   };
   if(token) st.konf["tok:" + String(token).trim()] = obj;
@@ -1090,7 +1092,8 @@ function terapkanDataPanitia(j, dariCacheAtauSeed){
     }
 
     // Mode Produksi: Pertahankan seluruh data konfirmasi kehadiran dari Spreadsheet & pembaruan lokal
-    var hadirServer = String(rawG.hadir || (rawG.konfirmasi && rawG.konfirmasi !== "BELUM" ? rawG.konfirmasi : "") || "").trim().toUpperCase();
+    var hadirServer = String(rawG.hadir || rawG.konfirmasi || "").trim().toUpperCase();
+    if(hadirServer === "BELUM") hadirServer = "";
     var konfLocal = (g.token && stSesi.konf["tok:" + g.token]) || (g.nama && stSesi.konf["nm:" + String(g.nama).trim().toLowerCase()]);
     if(!hadirServer && konfLocal && konfLocal.hadir){
       g.hadir = konfLocal.hadir;
